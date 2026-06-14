@@ -1,0 +1,21 @@
+title: Suspicious Linux Reconnaissance/Download Command
+id: el34-0003-linux-suspicious-cmd
+status: experimental
+description: 침투 후 흔한 정찰/다운로드 명령 — wget|curl http + chmod +x, /etc/shadow 접근 등
+logsource:
+    product: linux
+    category: process_creation
+detection:
+    selection_dl:
+        keywords:
+            - 'wget http'
+            - 'curl http'
+            - 'chmod +x'
+            - 'nc -e'
+            - '/etc/shadow'
+            - 'base64 -d'
+    condition: selection_dl
+level: medium
+tags:
+    - attack.execution
+    - attack.t1059

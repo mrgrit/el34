@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h2 style="margin-top:0;">프로필</h2>
+  <form method="POST">
+    <label class="muted">username</label>
+    <input name="username" value="{{me.username}}">
+    <label class="muted">email</label>
+    <input name="email" value="{{me.email}}">
+    <label class="muted">개인 메모리 (모든 대화 system 영역에 자동 추가)</label>
+    <textarea name="memory">{{me.memory}}</textarea>
+    <button class="btn" type="submit">저장</button>
+  </form>
+</div>
+{% endblock %}

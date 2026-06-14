@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h2 style="margin-top:0;">🛠 인프라 운영 대시보드</h2>
+  <p class="muted">시드: <code>admin/admin</code> · 본 시스템은 의도적으로 취약합니다.</p>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0;">사용자 (총 {{users|length}})</h3>
+  <table>
+    <tr><th>id</th><th>user</th><th>role</th><th>email</th></tr>
+    {% for u in users %}
+    <tr><td>{{u.id}}</td><td>{{u.username}}</td><td><span class="tag">{{u.role}}</span></td><td>{{u.email}}</td></tr>
+    {% endfor %}
+  </table>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0;">최근 잡</h3>
+  <table>
+    <tr><th>id</th><th>title</th><th>status</th><th>created_at</th></tr>
+    {% for j in jobs %}
+    <tr><td>{{j.id}}</td><td>{{j.title}}</td><td>{{j.status}}</td><td>{{j.created_at}}</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

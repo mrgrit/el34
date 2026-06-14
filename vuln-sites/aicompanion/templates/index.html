@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h2 style="margin-top:0;">🤖 AICompanion 에 오신 것을 환영합니다</h2>
+  <p>ACME Corp 사내 AI — 직원/고객/인프라 정보를 즉시 검색·답변합니다.</p>
+  <p class="muted">시드: <code>admin/admin</code> · <code>alice/alice123</code></p>
+  {% if me %}<a class="btn" href="/chat">새 대화 시작</a>{% else %}<a class="btn" href="/login">로그인</a>{% endif %}
+</div>
+{% endblock %}

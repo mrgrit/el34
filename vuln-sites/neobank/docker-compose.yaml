@@ -1,0 +1,14 @@
+services:
+  neobank:
+    build: .
+    image: neobank:vulnerable
+    container_name: neobank
+    ports:
+      - "3001:3001"
+    restart: unless-stopped
+    # ⚠️ 의도적 취약 시스템 — 폐쇄망 only. 외부 노출 절대 금지.
+    networks:
+      - ccc-vuln
+networks:
+  ccc-vuln:
+    external: true

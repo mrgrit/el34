@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>정부민원24 에 오신 것을 환영합니다</h1>
+<div class="card">
+  <h2>온라인 민원 서비스</h2>
+  <p>주민등록 등본 · 출생증명서 · 사업자등록 증명 · 인감 증명 등 온라인 발급.</p>
+  <p>SSO (SAML) 또는 주민번호+비밀번호로 로그인.</p>
+  {% if not user %}
+    <a href="/saml/login" class="btn" style="text-decoration:none; display:inline-block;">간편 SSO</a>
+    <a href="/login" class="btn btn-gray" style="text-decoration:none; display:inline-block; margin-left:6px;">일반 로그인</a>
+  {% else %}
+    <a href="/dashboard" class="btn" style="text-decoration:none; display:inline-block;">내 신청 보기</a>
+  {% endif %}
+</div>
+<div class="warn">
+  학습용 의도적 취약 시스템 (25 취약점). 강사용 카탈로그:
+  <code>contents/vuln-sites/govportal/seed/vulnerabilities.md</code>
+</div>
+{% endblock %}

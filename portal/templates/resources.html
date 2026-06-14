@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}6v6 Resources{% endblock %}
+{% block content %}
+<h1>Resources <span class=muted style="font-weight:400;font-size:0.6em;margin-left:8px">(EC2 instances 풍)</span></h1>
+
+<div class=card>
+<h2>실행 중인 컨테이너 ({{containers|length}})</h2>
+<table>
+<tr><th>이름</th><th>상태</th><th>IP</th><th>이미지</th><th>포트 매핑</th><th>시작</th></tr>
+{% for c in containers %}
+<tr>
+  <td><strong>{{c.name}}</strong></td>
+  <td>{% if c.status == 'running' %}<span class="badge ok">running</span>{% else %}<span class="badge danger">{{c.status}}</span>{% endif %}</td>
+  <td>{{c.ip}}</td>
+  <td class=muted>{{c.image}}</td>
+  <td class=muted>{{c.ports}}</td>
+  <td class=muted>{{c.started_at}}</td>
+</tr>
+{% endfor %}
+</table>
+</div>
+
+<div class=card>
+<h2>예상 컨테이너 (디자인)</h2>
+<table>
+<tr><th>이름</th><th>예정 IP</th><th>역할</th></tr>
+{% for n, ip, role in expected %}
+<tr><td>{{n}}</td><td>{{ip}}</td><td class=muted>{{role}}</td></tr>
+{% endfor %}
+</table>
+</div>
+{% endblock %}

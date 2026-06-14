@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}6v6 IDS{% endblock %}
+{% block content %}
+<h1>IDS <span class=muted style="font-weight:400;font-size:0.6em">(GuardDuty 풍 — Suricata eve.json)</span></h1>
+
+<div class=row>
+{% for et, c in type_counts %}
+<div class=card>
+<div class=muted>{{et}}</div>
+<div class=stat>{{c}}</div>
+</div>
+{% endfor %}
+</div>
+
+<div class=card>
+<h2>최근 alert ({{alerts|length}})</h2>
+{% if alerts %}
+<table>
+<tr><th>시간</th><th>SID</th><th>Signature</th><th>Src</th><th>Dst</th><th>Proto</th></tr>
+{% for a in alerts %}
+<tr>
+  <td class=muted>{{a.time}}</td>
+  <td class=muted>{{a.sid}}</td>
+  <td>{{a.sig}}</td>
+  <td class=muted>{{a.src}}</td>
+  <td class=muted>{{a.dst}}</td>
+  <td class=muted>{{a.proto}}</td>
+</tr>
+{% endfor %}
+</table>
+{% else %}
+<p class=muted>아직 alert 없음. attacker 에서 nmap 또는 SQLi 시도 후 새로고침.</p>
+{% endif %}
+</div>
+
+<div class=card>
+<h2>Top 10 Signature</h2>
+{% if top_sigs %}
+<table>
+<tr><th>#</th><th>Signature</th></tr>
+{% for sig, cnt in top_sigs %}
+<tr><td>{{cnt}}</td><td>{{sig}}</td></tr>
+{% endfor %}
+</table>
+{% else %}
+<p class=muted>—</p>
+{% endif %}
+</div>
+{% endblock %}

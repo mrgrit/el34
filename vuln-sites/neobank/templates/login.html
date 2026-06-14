@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>로그인</h1>
+<div class="card" style="max-width: 400px;">
+  {% if err %}<div style="background: #7f1d1d; color: #fef2f2; padding: 10px; border-radius: 4px; margin-bottom: 12px;">{{err|safe}}</div>{% endif %}
+  <form method="POST" action="/login">
+    <p>이메일<br><input type="text" name="email" required></p>
+    <p>비밀번호<br><input type="password" name="password" required></p>
+    <button type="submit" class="btn">로그인</button>
+    <p style="font-size:12px; color:#64748b; margin-top: 12px;">테스트 계정 — alice@example.com / alice123</p>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,32 @@
+.env
+*.log
+.DS_Store
+__pycache__/
+*.pyc
+node_modules/
+.idea/
+.vscode/
+docker-compose.yaml.bak-*
+
+# 학생 환경마다 다른 SSH key 자동 생성 (6v6.sh up 의 ensure_ssh_keys). public/private
+# 둘 다 학생 환경 전용 — public 도 다른 학생 환경에 쓰면 안 됨. keys/.gitkeep 만 push.
+keys/id_rsa
+keys/id_rsa.pub
+
+# OpenCTI overlay env (학생 환경마다 다른 UUID/key)
+.env.opencti
+
+# MISP overlay env (학생 환경마다 다른 password)
+.env.misp
+
+# Windows endpoint — dockurr/windows 가 만드는 큰 볼륨 (디스크 이미지 / 다운로드 ISO / 공유 폴더)
+# install.bat 만 git 추적, 디스크·공유 폴더는 학생 환경 전용
+win-storage/
+win-shared/
+
+# Wazuh TLS certs — 배포 시 생성/복사, 절대 push 금지 (사설키 포함)
+wazuh-config/certs/*.pem
+wazuh-config/certs/*.key
+
+# el34 deploy-time
+.env.opencti

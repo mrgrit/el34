@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>관리자 콘솔</h1>
+<div class="card">
+  <h2>시민 일괄 export</h2>
+  <a href="/api/citizens/export.csv" class="btn">전체 시민 CSV 다운로드</a>
+  <h2 style="margin-top:20px;">감사 로그 정리</h2>
+  <form method="POST" action="/api/audit/clear" id="auditform">
+    <input name="actor" placeholder="actor (예: admin)" required>
+    <button type="submit" class="btn-red btn">로그 삭제</button>
+  </form>
+</div>
+{% endblock %}

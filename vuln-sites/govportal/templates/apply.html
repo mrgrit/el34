@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>민원 신청</h1>
+<div class="card" style="max-width: 600px;">
+  {# V10 — CSRF token 의도적으로 없음 #}
+  <form method="POST" action="/apply" enctype="multipart/form-data">
+    <p>구분<br>
+      <select name="type">
+        <option value="birth_cert">출생증명서</option>
+        <option value="residence">주민등록 등본</option>
+        <option value="business">사업자등록 증명</option>
+        <option value="seal">인감 증명</option>
+      </select>
+    </p>
+    <p>신청 내용 (HTML 가능)<br><textarea name="content" rows="4"></textarea></p>
+    <p>첨부 파일 (확장자 제한 없음)<br><input type="file" name="file"></p>
+    <button type="submit" class="btn">제출</button>
+  </form>
+</div>
+{% endblock %}

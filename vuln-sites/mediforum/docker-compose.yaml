@@ -1,0 +1,13 @@
+services:
+  mediforum:
+    build: .
+    image: mediforum:vulnerable
+    container_name: mediforum
+    ports:
+      - "3003:3003"
+    restart: unless-stopped
+    networks:
+      - ccc-vuln
+networks:
+  ccc-vuln:
+    external: true

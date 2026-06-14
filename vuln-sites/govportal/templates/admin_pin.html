@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>관리자 콘솔 — PIN 입력</h1>
+<div class="card" style="max-width: 320px;">
+  <form method="POST" action="/admin/console">
+    <p>PIN<br><input type="password" name="pin" maxlength="4" required></p>
+    <button type="submit" class="btn">진입</button>
+  </form>
+</div>
+{% endblock %}

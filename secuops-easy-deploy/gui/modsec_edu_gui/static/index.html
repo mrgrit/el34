@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ModSecurity WAF 콘솔 · 6v6 교육용</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div id="app">
+  <aside class="sidebar">
+    <div class="brand"><div class="brand-logo">🛡️</div>
+      <div><div class="brand-title">ModSecurity WAF</div><div class="brand-sub">6v6 교육용 콘솔</div></div></div>
+    <nav class="nav">
+      <a class="nav-item active" data-view="dashboard">📊 대시보드</a>
+      <a class="nav-item" data-view="config">🗂️ 구성 · CRS</a>
+      <a class="nav-item" data-view="analyzer">🔬 SecRule 분석기</a>
+      <a class="nav-item" data-view="rules">📜 SecRule 관리</a>
+      <a class="nav-item" data-view="audit">📈 audit 로그</a>
+      <a class="nav-item" data-view="siem">🛰️ SIEM 연동</a>
+      <a class="nav-item" data-view="scenarios">🎯 침해대응 훈련 (30)</a>
+    </nav>
+    <div class="sidebar-foot">학습 모드 · GUI 룰 id ≥ 9000000 · edu_rules.conf · 적용 전 configtest 자동 검사</div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="topbar-title" id="view-title">대시보드</div>
+      <div class="topbar-status">
+        <span class="pill" id="st-apache">Apache —</span>
+        <span class="pill" id="st-engine">Engine —</span>
+        <span class="pill" id="st-rules">룰 —</span>
+        <span class="pill" id="st-audit">audit —</span>
+        <button class="btn btn-ghost" id="btn-refresh">↻ 새로고침</button>
+      </div>
+    </header>
+
+    <section class="view" id="view-dashboard">
+      <div class="cards" id="dash-cards"></div>
+      <div class="panel"><div class="panel-h">WAF(ModSecurity)는 무엇을 하나요?</div>
+        <div class="panel-b help">
+          <p><b>WAF(ModSecurity)</b> 는 웹 서버(Apache) 앞단에서 HTTP 요청의 <b>내용</b> 을 검사해
+          웹 공격(SQLi/XSS/LFI 등)을 막는다. 방화벽이 IP/포트, IPS 가 패킷 패턴을 본다면, WAF 는
+          <b>HTTP 의미</b>(파라미터·헤더·본문)를 이해하고 차단한다.</p>
+          <ul>
+            <li><b>SecRule</b> — 변수(ARGS/REQUEST_URI…) + 연산자(@rx/@contains/@pm) + 액션(deny/pass…)</li>
+            <li><b>OWASP CRS</b> — 미리 만들어진 표준 룰셋(3.3.2). 941=XSS, 942=SQLi …</li>
+            <li>이 콘솔의 룰은 적용 전 <b>configtest</b> 로 문법을 검사해 Apache 를 보호한다.</li>
+          </ul>
+        </div></div>
+    </section>
+
+    <section class="view hidden" id="view-config">
+      <div class="panel"><div class="panel-h">ModSecurity 핵심 설정</div>
+        <div class="panel-b"><table class="tbl" id="cfg-modsec"></table><div id="cfg-paths" class="kv"></div></div></div>
+      <div class="panel"><div class="panel-h">OWASP CRS 룰 패밀리 <span class="tag">파일별 SecRule 수</span></div>
+        <div class="panel-b" id="cfg-crs"></div></div>
+    </section>
+
+    <section class="view hidden" id="view-analyzer">
+      <div class="panel"><div class="panel-h">SecRule 구조 분석기</div>
+        <div class="panel-b">
+          <textarea id="an-input" class="ta" placeholder='SecRule ARGS "@rx (?i)union\s+select" "id:942100,phase:2,t:none,t:lowercase,deny,status:403,msg:&#39;SQLi&#39;,severity:&#39;CRITICAL&#39;"'></textarea>
+          <div class="btns"><button class="btn btn-primary" id="an-btn">분석</button>
+            <button class="btn btn-ghost" id="an-sample">예시</button></div>
+          <div id="an-out"></div>
+        </div></div>
+      <div class="panel"><div class="panel-h">CRS 룰 예시 보기
+        <span class="tag"><select id="crs-prefix" style="background:#0a0e13;color:#d7e0ea;border:1px solid #1e2733;border-radius:6px;padding:3px 8px">
+          <option value="REQUEST-941">941 XSS</option><option value="REQUEST-942">942 SQLi</option>
+          <option value="REQUEST-913">913 Scanner</option><option value="REQUEST-930">930 LFI</option>
+          <option value="REQUEST-932">932 RCE</option></select></span></div>
+        <div class="panel-b" id="crs-sample"></div></div>
+    </section>
+
+    <section class="view hidden" id="view-rules">
+      <div class="grid2">
+        <div class="panel"><div class="panel-h">SecRule 만들기 <span class="tag">폼 → 미리보기 → configtest → 적용</span></div>
+          <div class="panel-b">
+            <form id="rule-form" class="form">
+              <div class="row">
+                <label>변수<select name="variable" id="f-var"></select></label>
+                <label>연산자<select name="operator" id="f-op"></select></label>
+              </div>
+              <label>탐지 패턴<input name="pattern" placeholder="예: union.+select 또는 <script"></label>
+              <label>transform (변환, 다중 선택)
+                <span id="f-transforms" class="chips"></span></label>
+              <div class="row">
+                <label>action<select name="action" id="f-action"></select></label>
+                <label>status(deny 시)<input name="status" value="403"></label>
+                <label>phase<select name="phase"><option value="2">2 (본문/파라미터)</option><option value="1">1 (헤더)</option></select></label>
+              </div>
+              <div class="row">
+                <label>severity<select name="severity" id="f-sev"></select></label>
+                <label>id (비우면 자동)<input name="id" placeholder="auto"></label>
+              </div>
+              <label>msg (설명)<input name="msg" placeholder="EDU SQLi UNION"></label>
+              <div class="btns">
+                <button type="button" class="btn" id="btn-preview">① SecRule 미리보기</button>
+                <button type="button" class="btn btn-primary" id="btn-apply" disabled>② 적용(configtest+reload)</button>
+              </div>
+            </form>
+            <div class="cmdbox" id="rule-cmd">여기에 생성된 SecRule 이 표시됩니다.</div>
+            <div class="result" id="rule-result"></div>
+          </div></div>
+        <div class="panel"><div class="panel-h">edu_rules.conf (GUI 관리 룰) <span class="tag" id="rules-next">—</span></div>
+          <div class="panel-b" id="rules-list">불러오는 중…</div></div>
+      </div>
+    </section>
+
+    <section class="view hidden" id="view-audit">
+      <div class="panel"><div class="panel-h">ModSecurity audit 로그
+        <span class="tag"><label style="color:#d7e0ea"><input type="checkbox" id="audit-blocked"> 차단(403)만</label></span></div>
+        <div class="panel-b" id="audit-list">불러오는 중…</div></div>
+    </section>
+
+    <section class="view hidden" id="view-siem">
+      <div class="panel"><div class="panel-h">SIEM (Wazuh) 연동</div>
+        <div class="panel-b">
+          <p class="note"><code>modsec_audit.log</code>(JSON)은 web 의 Wazuh 에이전트가 tail 하여 SIEM 매니저(10.20.32.100)로 보낸다.
+          Wazuh decoder 가 메시지에서 <code>[id "941100"]</code> 같은 룰 ID 를 추출해 alert 로 만든다. 대개 <b>이미 연동</b>되어 있다.</p>
+          <div id="siem-status" class="siem-status">상태 확인 중…</div>
+          <div class="btns"><button class="btn btn-primary" id="siem-enable">연동 확인/켜기</button></div>
+          <div class="cmdbox" id="siem-detail"></div>
+        </div></div>
+    </section>
+
+    <section class="view hidden" id="view-scenarios">
+      <div class="panel"><div class="panel-h">침해대응 훈련 — SecRule 작성 30 <span class="tag">상황 → 공격 재현 → 룰 작성 → 검증</span></div>
+        <div class="panel-b"><p class="note" id="scn-intro"></p><div id="scn-groups"></div></div></div>
+      <div id="scn-list"></div>
+    </section>
+  </main>
+</div>
+<div id="toast" class="toast hidden"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

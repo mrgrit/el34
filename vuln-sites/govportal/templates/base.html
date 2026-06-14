@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>{% block title %}대한민국 정부민원24{% endblock %}</title>
+  <style>
+    body { font-family: -apple-system, sans-serif; background: #f5f5f5; color: #1a1a1a; margin: 0; }
+    .gov-header { background: #003478; color: #fff; padding: 12px 24px; border-bottom: 4px solid #c8202f; }
+    .gov-header .logo { font-size: 20px; font-weight: 700; }
+    .gov-header .sub { font-size: 12px; opacity: 0.85; }
+    nav { background: #fff; padding: 10px 24px; border-bottom: 1px solid #ddd; display: flex; gap: 18px; }
+    nav a { color: #003478; text-decoration: none; font-size: 14px; font-weight: 500; }
+    nav a:hover { color: #c8202f; }
+    .container { max-width: 1080px; margin: 24px auto; padding: 0 20px; }
+    h1 { color: #003478; border-bottom: 2px solid #003478; padding-bottom: 8px; }
+    h2 { color: #1a4789; }
+    .card { background: #fff; border: 1px solid #ddd; border-radius: 4px; padding: 18px; margin-bottom: 14px; }
+    .btn { background: #003478; color: #fff; border: none; padding: 8px 18px; border-radius: 3px; cursor: pointer; font-size: 14px; }
+    .btn-red { background: #c8202f; }
+    .btn-gray { background: #6b7280; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 8px; text-align: left; border-bottom: 1px solid #e5e5e5; font-size: 14px; }
+    th { background: #f5f5f5; color: #555; font-size: 12px; }
+    input, select, textarea { background: #fff; color: #1a1a1a; border: 1px solid #ccc; padding: 8px; border-radius: 3px; width: 100%; box-sizing: border-box; font-size: 14px; }
+    .warn { background: #fff7ed; border-left: 4px solid #ea580c; padding: 12px 16px; margin: 12px 0; font-size: 13px; }
+    .footer-warn { background: #c8202f; color: #fff; padding: 8px 24px; font-size: 12px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="footer-warn">⚠️ 의도적 취약 시스템 — CCC 폐쇄망 학습용 only.</div>
+  <div class="gov-header">
+    <div class="logo">대한민국 정부민원24</div>
+    <div class="sub">GovPortal — Citizen Service Portal</div>
+  </div>
+  <nav>
+    <a href="/">홈</a>
+    <a href="/dashboard">내 신청</a>
+    <a href="/apply">민원 신청</a>
+    <a href="/saml/login">SSO 로그인</a>
+    {% if user %}<a href="/logout">로그아웃</a>{% else %}<a href="/login">로그인</a>{% endif %}
+  </nav>
+  <div class="container">{% block content %}{% endblock %}</div>
+</body>
+</html>

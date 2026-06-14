@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang=ko>
+<head>
+<meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<title>{% block title %}6v6 Portal{% endblock %}</title>
+<script src="https://unpkg.com/htmx.org@2.0.4"></script>
+<style>
+:root { --accent: #2563eb; --bg: #f1f5f9; --card: #fff; --muted: #64748b; --border: #e2e8f0; --danger: #dc2626; --ok: #16a34a; --warn: #d97706; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: -apple-system, "Segoe UI", system-ui, sans-serif; background: var(--bg); color: #0f172a; }
+nav { background: #0f172a; color: #e2e8f0; padding: 0 24px; display: flex; align-items: center; gap: 4px; height: 56px; box-shadow: 0 2px 6px rgba(0,0,0,.15); }
+nav .brand { font-weight: 700; color: #60a5fa; margin-right: 24px; font-size: 1.1em; }
+nav a { color: #cbd5e1; text-decoration: none; padding: 10px 14px; border-radius: 6px; font-size: 0.92em; }
+nav a:hover { background: #1e293b; color: #fff; }
+nav a.active { background: #1e40af; color: #fff; }
+nav .spacer { flex: 1; }
+nav .meta { color: #94a3b8; font-size: 0.85em; }
+main { max-width: 1280px; margin: 24px auto; padding: 0 24px; }
+h1 { font-size: 1.5em; margin: 0 0 18px; color: #0f172a; }
+h2 { font-size: 1.05em; margin: 1.5em 0 8px; color: #1e40af; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin-bottom: 16px; }
+.row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.stat { font-size: 1.8em; font-weight: 600; color: var(--accent); }
+.stat small { font-size: 0.5em; color: var(--muted); font-weight: 400; }
+table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+th, td { border-bottom: 1px solid var(--border); padding: 8px 10px; text-align: left; }
+th { background: #f8fafc; color: var(--muted); font-weight: 600; font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.04em; }
+tr:hover { background: #f8fafc; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+.badge.ok { background: #dcfce7; color: var(--ok); }
+.badge.danger { background: #fee2e2; color: var(--danger); }
+.badge.warn { background: #fef3c7; color: var(--warn); }
+.badge.muted { background: #f1f5f9; color: var(--muted); }
+pre { background: #0f172a; color: #e2e8f0; padding: 14px; border-radius: 6px; overflow-x: auto; font-size: 0.82em; max-height: 380px; overflow-y: auto; }
+.muted { color: var(--muted); font-size: 0.86em; }
+.btn { display: inline-block; padding: 6px 12px; background: var(--accent); color: white; border-radius: 6px; text-decoration: none; font-size: 0.86em; border: none; cursor: pointer; }
+.btn:hover { background: #1d4ed8; }
+.btn.alt { background: white; color: var(--accent); border: 1px solid var(--accent); }
+select, input { padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9em; }
+</style>
+</head>
+<body>
+<nav>
+  <span class=brand>6v6</span>
+  <a href="/" class="{% if page == 'dashboard' %}active{% endif %}">Dashboard</a>
+  <a href="/resources" class="{% if page == 'resources' %}active{% endif %}">Resources</a>
+  <a href="/network" class="{% if page == 'network' %}active{% endif %}">Network</a>
+  <a href="/logs" class="{% if page == 'logs' %}active{% endif %}">Logs</a>
+  <a href="/waf" class="{% if page == 'waf' %}active{% endif %}">WAF</a>
+  <a href="/ids" class="{% if page == 'ids' %}active{% endif %}">IDS</a>
+  <a href="/audit" class="{% if page == 'audit' %}active{% endif %}">Audit</a>
+  <a href="/agent" class="{% if page == 'agent' %}active{% endif %}">Agent</a>
+  <span class=spacer></span>
+  <span class=meta>관리 포털</span>
+</nav>
+<main>
+{% block content %}{% endblock %}
+</main>
+</body>
+</html>

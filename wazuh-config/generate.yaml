@@ -1,0 +1,8 @@
+# Wazuh 4.10 SSL cert 1회 생성 — ccc-standalone.sh 의 cmd_up 첫 실행 시 자동 호출.
+services:
+  generator:
+    image: wazuh/wazuh-certs-generator:0.0.2
+    hostname: wazuh-certs-generator
+    volumes:
+      - ./certs:/certificates
+      - ./config/certs.yml:/config/certs.yml

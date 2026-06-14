@@ -1,0 +1,15 @@
+<!--
+  Wazuh decoder for bastion audit + lifecycle events
+  - bastion-audit: 1 mission 의 final 요약 (audit.py 가 송신)
+  - bastion-lifecycle: stage 별 event (api.py chat handler 가 송신)
+  둘 다 JSON payload, plugin_decoder 가 parse 후 data.{...} 로 추출
+-->
+<decoder name="bastion-audit">
+  <prematch>bastion-audit </prematch>
+  <plugin_decoder offset="after_prematch">JSON_Decoder</plugin_decoder>
+</decoder>
+
+<decoder name="bastion-lifecycle">
+  <prematch>bastion-lifecycle </prematch>
+  <plugin_decoder offset="after_prematch">JSON_Decoder</plugin_decoder>
+</decoder>

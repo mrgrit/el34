@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h2 style="margin-top:0;">받은 쪽지</h2>
+  {% for m in msgs %}
+    <div style="border-bottom:1px solid var(--border);padding:10px 0;">
+      <div class="meta">from <strong>{{m.from_name}}</strong> · {{m.created_at}}</div>
+      <div>{{m.body|safe}}</div>
+    </div>
+  {% endfor %}
+</div>
+<div class="card">
+  <h3 style="margin-top:0;">쪽지 보내기</h3>
+  <form method="POST" action="/dm/send">
+    <input name="to_id" placeholder="대상 user id" required>
+    <textarea name="body" placeholder="내용 (HTML 허용)" required></textarea>
+    <button class="btn" type="submit">보내기</button>
+  </form>
+</div>
+{% endblock %}

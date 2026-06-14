@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>거래 검색</h1>
+<form method="GET" action="/search" style="margin-bottom: 16px;">
+  <input type="text" name="q" value="{{q}}" placeholder="메모 검색..." style="max-width: 400px; display: inline-block;">
+  <button type="submit" class="btn">검색</button>
+</form>
+{# V11 — Reflected XSS — q 를 escape 없이 출력 #}
+<p>검색어: {{q|safe}}</p>
+<div class="card">
+  <table>
+    <tr><th>ID</th><th>From</th><th>To</th><th>금액</th><th>메모</th></tr>
+    {% for r in rows %}
+    <tr><td>{{r.id}}</td><td>{{r.from_account}}</td><td>{{r.to_account}}</td>
+        <td>{{r.amount}}</td><td>{{r.memo|safe}}</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

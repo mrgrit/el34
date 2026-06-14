@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>로그인</h1>
+<div class="card" style="max-width: 420px;">
+  {% if err %}<div class="warn">{{err|safe}}</div>{% endif %}
+  <form method="POST" action="/login">
+    <p>주민등록번호 (000000-0000000)<br><input type="text" name="ssn" required></p>
+    <p>비밀번호<br><input type="password" name="password" required></p>
+    <button type="submit" class="btn">로그인</button>
+    <p style="font-size:12px; color:#666; margin-top:10px;">테스트 — 900101-1234567 / kim2024</p>
+  </form>
+</div>
+{% endblock %}

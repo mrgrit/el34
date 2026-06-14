@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>신청서 #{{app.id}}</h1>
+<div class="card">
+  <p>신청자: {{citizen.full_name}} ({{citizen.ssn}})</p>
+  <p>구분: {{app.application_type}}</p>
+  <p>상태: <b>{{app.status}}</b></p>
+  <p>제출일: {{app.submitted_at}}</p>
+  <p>내용:</p>
+  <div style="border-left: 3px solid #003478; padding: 8px 12px; background: #f5f5f5;">{{app.content|safe}}</div>
+  {% if app.attached_file %}
+  <p>첨부: <a href="/uploads/{{app.attached_file}}">{{app.attached_file}}</a></p>
+  {% endif %}
+  <form method="POST" action="/applications/{{app.id}}/approve" style="margin-top: 14px;">
+    <button type="submit" class="btn-red btn">승인</button>
+  </form>
+</div>
+{% endblock %}

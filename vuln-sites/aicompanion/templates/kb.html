@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h2 style="margin-top:0;">📚 지식베이스 (RAG corpus)</h2>
+  <p class="muted">총 {{docs|length}} 개 문서. 누구나 추가 가능 — <code>POST /api/rag/add</code></p>
+</div>
+{% for d in docs %}
+<div class="card">
+  <div><span class="tag">{{d.tag}}</span> <strong>{{d.title}}</strong></div>
+  <pre style="background:#01101a;padding:10px;border-radius:5px;overflow:auto;">{{d.content}}</pre>
+</div>
+{% endfor %}
+{% endblock %}

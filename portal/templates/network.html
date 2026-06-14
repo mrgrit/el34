@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}6v6 Network{% endblock %}
+{% block content %}
+<h1>Network <span class=muted style="font-weight:400;font-size:0.6em">(VPC 풍)</span></h1>
+
+{% for n in networks %}
+<div class=card>
+<h2>{{n.name}} <span class=muted style="font-weight:400">({{n.driver}}, {{n.subnet}})</span></h2>
+{% if n.containers %}
+<table>
+<tr><th>컨테이너</th><th>IP</th></tr>
+{% for c in n.containers %}
+<tr><td>{{c.name}}</td><td class=muted>{{c.ip}}</td></tr>
+{% endfor %}
+</table>
+{% else %}
+<p class=muted>(연결된 컨테이너 없음)</p>
+{% endif %}
+</div>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h2 style="margin-top:0;">사용자 검색</h2>
+  <form method="GET">
+    <input name="q" value="{{q}}" placeholder="이름/이메일/소개 검색...">
+    <button class="btn" type="submit">검색</button>
+  </form>
+</div>
+{% if results %}
+<div class="card">
+  <table>
+    <tr><th>id</th><th>이름</th><th>역할</th><th>이메일</th><th>전화</th><th>주민(masked)</th><th>API key</th></tr>
+    {% for r in results %}
+    <tr>
+      <td>{{r.id}}</td>
+      <td><a href="/profile/{{r.id}}">{{r.display_name}}</a></td>
+      <td>{{r.role}}</td>
+      <td>{{r.email}}</td>
+      <td>{{r.phone}}</td>
+      <td>{{r.ssn}}</td>
+      <td>{{r.api_key}}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endif %}
+{% endblock %}

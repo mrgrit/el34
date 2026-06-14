@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h2 style="margin-top:0;">최근 게시글</h2>
+  {% if me %}<a class="btn" href="/posts/new">+ 새 글 쓰기</a>{% endif %}
+</div>
+{% for p in posts %}
+<div class="card">
+  <div><span class="tag">{{p.tag}}</span> <a href="/posts/{{p.id}}"><strong>{{p.title}}</strong></a></div>
+  <div class="meta">by <a href="/profile/{{p.author_id}}">{{p.display_name or '?'}}</a> · {{p.created_at}} · 댓글 {{p.cmt}}</div>
+</div>
+{% endfor %}
+{% endblock %}

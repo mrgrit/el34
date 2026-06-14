@@ -1,0 +1,470 @@
+name: el34
+
+# ─────────────────────────────────────────────────────────────
+# el34 — 3-tier chained topology: ext -> pipe -> dmz (+ int backend)
+# Enforced packet flow:  attacker(.202) -> fw -> ips -> waf(web/ModSec) -> app
+#
+# 출처 IP 보존 설계 (6v6 의 NAT 출처추적 결함 제거):
+#   - HAProxy 제거: fw 는 L3 포트분기 DNAT 만 (L7 종료 안 함)
+#   - ips masquerade 제거: 데이터경로 출처 IP 가 web/ModSec 까지 그대로 도달
+#   - daemon.json userland-proxy=false: 호스트 .161 publish DNAT 가 출처 보존
+#   - web(ModSec) 만 종료 → WAF 가 진짜 공격자(.202)를 로깅/차단
+#
+# 외부 노출(LAN 192.168.0.0/24):  웹 진입만 ens37=192.168.0.161 에 publish
+# 내부 전용(호스트 Firefox 만):     SIEM/대시보드/보안 GUI 는 ens38=192.168.136.145 에 publish
+#                                  (LAN 에서 격리 — VMware NAT 망)
+# 외부 공격자:                      별도 VM 192.168.0.202 (이 compose 밖)
+# Windows:                         보류 (추후 독립 HW)
+# ─────────────────────────────────────────────────────────────
+
+x-web-host: &web_host "192.168.0.161"      # ens37 — 웹/dmz 외부 진입 IP
+x-int-host: &int_host "192.168.136.145"    # ens38 — 내부전용 GUI/SIEM 바인딩 IP
+
+services:
+
+  # ╭─ ext tier ─────────────────────────────────────────────╮
+  bastion:
+    container_name: el34-bastion
+    build:
+      context: .
+      dockerfile: bastion/Dockerfile
+    hostname: bastion
+    networks:
+      ext:
+        ipv4_address: 10.20.30.201
+    ports:
+      - "${PORT_BASTION_SSH:-2204}:22"
+    cap_add: [NET_ADMIN]
+    environment:
+      SSH_USER: ${SSH_USER:-ccc}
+      SSH_PASS: ${SSH_PASS:-ccc}
+      API_KEY: ${API_KEY:-ccc-api-key-2026}
+      # Ollama 는 외부 GPU 서버 — .env 의 LLM_BASE_URL 로 지정 (로컬 모델 적재 없음).
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_MANAGER_MODEL: ${LLM_MANAGER_MODEL}
+      LLM_SUBAGENT_MODEL: ${LLM_SUBAGENT_MODEL}
+      DEFAULT_GW: 10.20.30.1
+    extra_hosts:
+      - "juice.6v6.lab:10.20.30.1"
+      - "dvwa.6v6.lab:10.20.30.1"
+      - "neobank.6v6.lab:10.20.30.1"
+      - "govportal.6v6.lab:10.20.30.1"
+      - "mediforum.6v6.lab:10.20.30.1"
+      - "adminconsole.6v6.lab:10.20.30.1"
+      - "aicompanion.6v6.lab:10.20.30.1"
+      - "siem.6v6.lab:10.20.30.1"
+    volumes:
+      - bastion-data:/var/lib/bastion
+      - bastion-ssh-host:/var/lib/bastion/ssh-host-keys
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./keys:/keys:ro
+    restart: unless-stopped
+
+  # 내부 발판 침입자(insider) — ext 망에서 출발. 외부 공격자(outsider)는 별도 VM(.202).
+  attacker:
+    container_name: el34-attacker
+    build:
+      context: .
+      dockerfile: attacker/Dockerfile
+    hostname: attacker
+    networks:
+      ext:
+        ipv4_address: 10.20.30.202
+    ports:
+      - "${PORT_ATTACKER_SSH:-2202}:22"
+    cap_add: [NET_ADMIN]
+    environment:
+      SSH_USER: ${SSH_USER:-ccc}
+      SSH_PASS: ${SSH_PASS:-ccc}
+      DEFAULT_GW: 10.20.30.1
+    extra_hosts:
+      - "juice.6v6.lab:10.20.30.1"
+      - "dvwa.6v6.lab:10.20.30.1"
+      - "neobank.6v6.lab:10.20.30.1"
+      - "govportal.6v6.lab:10.20.30.1"
+      - "mediforum.6v6.lab:10.20.30.1"
+      - "adminconsole.6v6.lab:10.20.30.1"
+      - "aicompanion.6v6.lab:10.20.30.1"
+      - "siem.6v6.lab:10.20.30.1"
+    volumes:
+      - attacker-home:/home/ccc
+      - attacker-ssh-host:/var/lib/ssh-host-keys
+      - ./keys:/keys:ro
+    restart: unless-stopped
+
+  # ╭─ Edge router: ext <-> pipe (HAProxy 제거 → L3 포트분기 DNAT) ──╮
+  # 웹 진입: 호스트 .161 의 포트 → fw → ips → web(ModSec) → app.
+  #   .161:80    -> 기본(Host 헤더 vhost)         .161:8001 -> juice
+  #   .161:8002  -> dvwa     .161:8003 -> neobank  .161:8004 -> govportal
+  #   .161:8005  -> mediforum .161:8006 -> adminconsole .161:8007 -> aicompanion
+  fw:
+    container_name: el34-fw
+    build:
+      context: .
+      dockerfile: fw/Dockerfile
+    hostname: fw
+    networks:
+      ext:
+        ipv4_address: 10.20.30.1
+        aliases: [secu, 6v6-secu]
+      pipe:
+        ipv4_address: 10.20.31.1
+        aliases: [secu, 6v6-secu]
+    ports:
+      - "192.168.0.161:80:80"
+      - "192.168.0.161:443:443"
+      - "192.168.0.161:8001:8001"
+      - "192.168.0.161:8002:8002"
+      - "192.168.0.161:8003:8003"
+      - "192.168.0.161:8004:8004"
+      - "192.168.0.161:8005:8005"
+      - "192.168.0.161:8006:8006"
+      - "192.168.0.161:8007:8007"
+      - "192.168.0.161:9100:9100"        # bastion API (관리)
+      - "192.168.136.145:8081:8080"      # fw 보안콘솔 GUI — 내부전용(호스트 Firefox)
+    cap_add: [NET_ADMIN, NET_RAW]
+    sysctls:
+      net.ipv4.ip_forward: "1"
+    environment:
+      SSH_USER: ${SSH_USER:-ccc}
+      SSH_PASS: ${SSH_PASS:-ccc}
+      WAZUH_MANAGER: 10.20.32.100
+      IPS_PIPE_IP: 10.20.31.2
+      WEB_DMZ_IP: 10.20.32.80        # DNAT 대상(web/ModSec)
+      BASTION_API_IP: 10.20.30.201
+    volumes:
+      - ./keys:/keys:ro
+    restart: unless-stopped
+
+  # ╭─ IPS: pipe <-> dmz (Suricata inline + ip_forward, masquerade 제거) ──╮
+  ips:
+    container_name: el34-ips
+    build:
+      context: .
+      dockerfile: ips/Dockerfile
+    hostname: ips
+    networks:
+      pipe:
+        ipv4_address: 10.20.31.2
+      dmz:
+        ipv4_address: 10.20.32.1
+    cap_add: [NET_ADMIN, NET_RAW]
+    sysctls:
+      net.ipv4.ip_forward: "1"
+    environment:
+      SSH_USER: ${SSH_USER:-ccc}
+      SSH_PASS: ${SSH_PASS:-ccc}
+      WAZUH_MANAGER: 10.20.32.100
+      FW_PIPE_IP: 10.20.31.1
+      PRESERVE_SRC_IP: "1"           # 데이터경로 masquerade 비활성 (출처 보존)
+    ports:
+      - "192.168.136.145:8082:8080"  # ips 보안콘솔 GUI — 내부전용(호스트 Firefox)
+    volumes:
+      - ips-suricata-logs:/var/log/suricata
+      - ./keys:/keys:ro
+    depends_on:
+      - fw
+    restart: unless-stopped
+
+  # ╭─ DMZ tier: WAF(web/ModSec) + 관리/SIEM 서비스 ──────────╮
+  web:
+    container_name: el34-web
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    hostname: web
+    networks:
+      dmz:
+        ipv4_address: 10.20.32.80
+      int:
+        ipv4_address: 10.20.40.80
+    cap_add: [NET_ADMIN]
+    environment:
+      SSH_USER: ${SSH_USER:-ccc}
+      SSH_PASS: ${SSH_PASS:-ccc}
+      WAZUH_MANAGER: 10.20.32.100
+      DEFAULT_GW: 10.20.32.1   # via ips — 출처(.202)로의 응답 경로
+    ports:
+      - "192.168.136.145:8083:8080"  # WAF(ModSec) 보안콘솔 GUI — 내부전용(호스트 Firefox)
+    volumes:
+      - web-apache-logs:/var/log/apache2
+      - ./keys:/keys:ro
+    depends_on:
+      - ips
+      - juiceshop
+      - dvwa
+      - neobank
+      - govportal
+      - mediforum
+      - adminconsole
+      - aicompanion
+    restart: unless-stopped
+
+  wazuh-indexer:
+    container_name: el34-wazuh-indexer
+    image: wazuh/wazuh-indexer:4.10.0
+    hostname: wazuh.indexer
+    environment:
+      OPENSEARCH_JAVA_OPTS: "-Xms1g -Xmx1g"
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+      nofile: { soft: 65536, hard: 65536 }
+    volumes:
+      - wazuh-indexer-data:/var/lib/wazuh-indexer
+      - ./wazuh-config/certs/root-ca.pem:/usr/share/wazuh-indexer/certs/root-ca.pem
+      - ./wazuh-config/certs/wazuh.indexer-key.pem:/usr/share/wazuh-indexer/certs/wazuh.indexer.key
+      - ./wazuh-config/certs/wazuh.indexer.pem:/usr/share/wazuh-indexer/certs/wazuh.indexer.pem
+      - ./wazuh-config/certs/admin.pem:/usr/share/wazuh-indexer/certs/admin.pem
+      - ./wazuh-config/certs/admin-key.pem:/usr/share/wazuh-indexer/certs/admin-key.pem
+      - ./wazuh-config/wazuh_indexer.yml:/usr/share/wazuh-indexer/opensearch.yml
+      - ./wazuh-config/internal_users.yml:/usr/share/wazuh-indexer/opensearch-security/internal_users.yml
+    networks:
+      dmz:
+        ipv4_address: 10.20.32.110
+        aliases: [wazuh.indexer, wazuh-indexer]
+    restart: unless-stopped
+
+  siem:
+    container_name: el34-siem
+    build:
+      context: .
+      dockerfile: siem/Dockerfile
+    image: el34-siem:custom
+    hostname: wazuh.manager
+    depends_on: [wazuh-indexer]
+    environment:
+      INDEXER_URL: https://wazuh.indexer:9200
+      INDEXER_USERNAME: admin
+      INDEXER_PASSWORD: SecretPassword
+      FILEBEAT_SSL_VERIFICATION_MODE: full
+      SSL_CERTIFICATE_AUTHORITIES: /etc/ssl/root-ca.pem
+      SSL_CERTIFICATE: /etc/ssl/filebeat.pem
+      SSL_KEY: /etc/ssl/filebeat.key
+      API_USERNAME: wazuh-wui
+      API_PASSWORD: MyS3cr37P450r.*-
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+      nofile: { soft: 655360, hard: 655360 }
+    volumes:
+      - wazuh-manager-etc:/var/ossec/etc
+      - wazuh-manager-logs:/var/ossec/logs
+      - wazuh-manager-queue:/var/ossec/queue
+      - wazuh-manager-var:/var/ossec/var
+      - ./wazuh-config/certs/root-ca-manager.pem:/etc/ssl/root-ca.pem
+      - ./wazuh-config/certs/wazuh.manager.pem:/etc/ssl/filebeat.pem
+      - ./wazuh-config/certs/wazuh.manager-key.pem:/etc/ssl/filebeat.key
+      - ./keys:/keys:ro
+    networks:
+      dmz:
+        ipv4_address: 10.20.32.100
+        aliases: [siem, wazuh.manager, wazuh-manager]
+    restart: unless-stopped
+
+  wazuh-dashboard:
+    container_name: el34-wazuh-dashboard
+    image: wazuh/wazuh-dashboard:4.10.0
+    hostname: wazuh.dashboard
+    depends_on: [wazuh-indexer, siem]
+    environment:
+      INDEXER_USERNAME: admin
+      INDEXER_PASSWORD: SecretPassword
+      WAZUH_API_URL: https://wazuh.manager
+      DASHBOARD_USERNAME: kibanaserver
+      DASHBOARD_PASSWORD: kibanaserver
+      API_USERNAME: wazuh-wui
+      API_PASSWORD: MyS3cr37P450r.*-
+    volumes:
+      - ./wazuh-config/certs/wazuh.dashboard.pem:/usr/share/wazuh-dashboard/certs/wazuh-dashboard.pem
+      - ./wazuh-config/certs/wazuh.dashboard-key.pem:/usr/share/wazuh-dashboard/certs/wazuh-dashboard-key.pem
+      - ./wazuh-config/certs/root-ca.pem:/usr/share/wazuh-dashboard/certs/root-ca.pem
+      - ./wazuh-config/opensearch_dashboards.yml:/usr/share/wazuh-dashboard/config/opensearch_dashboards.yml
+      - ./wazuh-config/wazuh.yml:/usr/share/wazuh-dashboard/data/wazuh/config/wazuh.yml
+    # 내부 전용: SIEM 대시보드는 호스트(.151) Firefox 에서만 — ens38(.136.145):5601 바인딩
+    ports:
+      - "192.168.136.145:5601:5601"
+    networks:
+      dmz:
+        ipv4_address: 10.20.32.120
+        aliases: [wazuh.dashboard, wazuh-dashboard]
+    restart: unless-stopped
+
+  portal:
+    container_name: el34-portal
+    build:
+      context: .
+      dockerfile: portal/Dockerfile
+    hostname: portal
+    networks:
+      dmz:
+        ipv4_address: 10.20.32.50
+    ports:
+      - "192.168.136.145:8000:8000"  # 관리 포털 — 내부전용(호스트 Firefox)
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ips-suricata-logs:/data/suricata-logs:ro
+      - web-apache-logs:/data/apache-logs:ro
+      - bastion-data:/data/bastion-data:ro
+      - wazuh-manager-logs:/data/wazuh:ro
+    environment:
+      BASTION_API_URL: http://10.20.30.201:9100
+      BASTION_API_KEY: ${API_KEY:-ccc-api-key-2026}
+    depends_on: [siem, web]
+    restart: unless-stopped
+
+  assessor:
+    container_name: el34-assessor
+    profiles: [assessor]
+    build:
+      context: .
+      dockerfile: assessor/Dockerfile
+    hostname: assessor
+    networks:
+      dmz:
+        ipv4_address: 10.20.32.55
+        aliases: [assessor]
+    environment:
+      API_KEY: ${API_KEY:-ccc-api-key-2026}
+      USE_INDEXER: ${ASSESSOR_USE_INDEXER:-0}
+      INDEXER_URL: https://10.20.32.110:9200
+      INDEXER_USER: admin
+      INDEXER_PASS: SecretPassword
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - wazuh-manager-logs:/data/wazuh:ro
+      - ips-suricata-logs:/data/suricata-logs:ro
+      - web-apache-logs:/data/apache-logs:ro
+    depends_on: [siem, web, ips]
+    restart: unless-stopped
+
+  provisioner:
+    container_name: el34-provisioner
+    profiles: [provisioner]
+    build:
+      context: .
+      dockerfile: assessor/Dockerfile
+    command: ["uvicorn", "assessor.provisioner:app", "--host", "0.0.0.0", "--port", "8000"]
+    hostname: provisioner
+    networks:
+      dmz:
+        ipv4_address: 10.20.32.56
+        aliases: [provisioner]
+    environment:
+      API_KEY: ${API_KEY:-ccc-api-key-2026}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on: [siem]
+    restart: unless-stopped
+
+  # ╭─ int tier: vuln endpoints (behind WAF) ─────────────────╮
+  juiceshop:
+    container_name: el34-juiceshop
+    image: bkimminich/juice-shop:latest
+    hostname: juiceshop
+    networks:
+      int: { ipv4_address: 10.20.40.81 }
+    restart: unless-stopped
+
+  dvwa:
+    container_name: el34-dvwa
+    image: vulnerables/web-dvwa:latest
+    hostname: dvwa
+    networks:
+      int: { ipv4_address: 10.20.40.82 }
+    restart: unless-stopped
+
+  neobank:
+    container_name: el34-neobank
+    build: { context: ./vuln-sites/neobank }
+    hostname: neobank
+    networks:
+      int: { ipv4_address: 10.20.40.83 }
+    environment: { PORT: 3001 }
+    restart: unless-stopped
+
+  govportal:
+    container_name: el34-govportal
+    build: { context: ./vuln-sites/govportal }
+    hostname: govportal
+    networks:
+      int: { ipv4_address: 10.20.40.84 }
+    environment: { PORT: 3002 }
+    restart: unless-stopped
+
+  mediforum:
+    container_name: el34-mediforum
+    build: { context: ./vuln-sites/mediforum }
+    hostname: mediforum
+    networks:
+      int: { ipv4_address: 10.20.40.85 }
+    environment: { PORT: 3003 }
+    restart: unless-stopped
+
+  adminconsole:
+    container_name: el34-adminconsole
+    build: { context: ./vuln-sites/adminconsole }
+    hostname: adminconsole
+    networks:
+      int: { ipv4_address: 10.20.40.86 }
+    environment: { PORT: 3004 }
+    restart: unless-stopped
+
+  aicompanion:
+    container_name: el34-aicompanion
+    build: { context: ./vuln-sites/aicompanion }
+    hostname: aicompanion
+    networks:
+      int: { ipv4_address: 10.20.40.87 }
+    environment:
+      PORT: 3005
+      LLM_BACKEND: ${AICOMPANION_LLM_BACKEND:-mock}
+      OLLAMA_URL: ${LLM_BASE_URL:-}
+      OLLAMA_MODEL: ${LLM_MODEL:-gemma3:4b}
+    restart: unless-stopped
+
+
+networks:
+  ext:
+    name: el34-ext
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.20.30.0/24
+          gateway: 10.20.30.254
+
+  pipe:
+    name: el34-pipe
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.20.31.0/24
+          gateway: 10.20.31.254
+
+  dmz:
+    name: el34-dmz
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.20.32.0/24
+          gateway: 10.20.32.254
+
+  int:
+    name: el34-int
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.20.40.0/24
+          gateway: 10.20.40.254
+
+
+volumes:
+  bastion-data:
+  ips-suricata-logs:
+  web-apache-logs:
+  wazuh-indexer-data:
+  wazuh-manager-etc:
+  wazuh-manager-logs:
+  wazuh-manager-queue:
+  wazuh-manager-var:
+  attacker-home:
+  bastion-ssh-host:
+  attacker-ssh-host:

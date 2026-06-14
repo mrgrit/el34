@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>송금</h1>
+<div class="card" style="max-width: 500px;">
+  {# V09 — CSRF token 의도적으로 없음 #}
+  <form method="POST" action="/transfer">
+    <p>From<br>
+      <select name="from">
+        {% for a in accounts %}
+        <option value="{{a.account_number}}">{{a.account_number}} ({{a.balance|int}})</option>
+        {% endfor %}
+      </select>
+    </p>
+    <p>To 계좌번호<br><input type="text" name="to" required></p>
+    <p>금액<br><input type="number" name="amount" required></p>
+    <p>메모 (HTML 가능)<br><textarea name="memo"></textarea></p>
+    <button type="submit" class="btn">송금</button>
+  </form>
+</div>
+{% endblock %}

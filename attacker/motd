@@ -1,0 +1,34 @@
+========================================================
+  6v6 Attacker - pentest learning console
+========================================================
+
+Installed tools:
+  nmap, hydra, sqlmap, nikto, ncat, pwntools
+
+Network topology (4-tier chained):
+  ext (10.20.30.0/24)  <- you are here (10.20.30.202)
+       |
+       v   default route via fw (10.20.30.1)
+  fw (10.20.30.1) ext + (10.20.31.1) pipe
+       |
+       v
+  ips (10.20.31.2) pipe + (10.20.32.1) dmz   <- Suricata IDS
+       |
+       v
+  dmz (10.20.32.0/24): web, siem, portal, wazuh-*
+       |
+       v   web acts as WAF (Apache + ModSec)
+  int (10.20.40.0/24): juiceshop, dvwa, neobank, ...
+
+All HTTP attacks traverse: attacker -> fw -> ips -> web -> vuln
+Internal services (siem, dashboard, portal): -> fw -> ips -> [target]
+
+Quick start:
+  curl http://juice.6v6.lab/                    (vuln, via WAF)
+  curl -A 'sqlmap/1.7' http://juice.6v6.lab/    (WAF blocks, IDS alerts)
+  nmap -sT -p 80,443 10.20.32.80                (web direct, via fw+ips)
+  nikto -h http://juice.6v6.lab/
+
+Browse SIEM (no WAF in path):
+  https://siem.6v6.lab/   (admin / SecretPassword)
+========================================================

@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card" style="max-width:380px;margin:60px auto;">
+  <h2 style="margin-top:0;">로그인</h2>
+  {% if error %}<div class="err">{{error}}</div>{% endif %}
+  <form method="POST">
+    <input name="username" placeholder="username" required>
+    <input type="password" name="password" placeholder="password" required>
+    <button class="btn" type="submit">login</button>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,23 @@
+<!--
+  6v6-assessor-collection: 정적 수집(cohort-free) — web Wazuh agent 보강.
+  web/entrypoint.sh 가 이 블록을 ossec.conf 의 </ossec_config> 앞에 1회 삽입(멱등).
+  · FIM(syscheck): Apache/ModSecurity 설정 + 실습 디렉터리 변경 감시(realtime+report_changes+whodata)
+  · 명령 로깅 localfile: PROMPT_COMMAND 가 적는 /var/log/6v6-cmd.log → manager(cmdlog decoder)
+  (Apache/ModSec access·error·audit localfile 은 entrypoint 가 별도 주입 — 여기서 중복 금지)
+-->
+  <syscheck>
+    <disabled>no</disabled>
+    <frequency>300</frequency>
+    <scan_on_start>yes</scan_on_start>
+    <!-- 채점 관심사 = '변경'(modified). 초기 스캔의 기존 파일마다 알림(alert_new_files)을
+         켜면 CRS 등 다수 파일에서 첫 기동 시 알림 폭주 → no 로 둔다(기본값). -->
+    <directories realtime="yes" report_changes="yes" whodata="yes">/etc/apache2</directories>
+    <directories realtime="yes" report_changes="yes" whodata="yes">/etc/modsecurity</directories>
+    <directories realtime="yes" report_changes="yes">/usr/share/modsecurity-crs</directories>
+    <directories realtime="yes" report_changes="yes">/home/ccc</directories>
+  </syscheck>
+
+  <localfile>
+    <log_format>syslog</log_format>
+    <location>/var/log/6v6-cmd.log</location>
+  </localfile>

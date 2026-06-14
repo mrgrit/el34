@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card" style="max-width:420px;margin:60px auto;">
+  <h2 style="margin-top:0;">비밀번호 분실</h2>
+  {% if error %}<div class="err">{{error}}</div>{% endif %}
+  {% if message %}<div class="ok">{{message}}</div>{% endif %}
+  <form method="POST">
+    <input name="email" placeholder="email">
+    <button class="btn" type="submit">리셋 링크 보내기</button>
+  </form>
+</div>
+{% endblock %}

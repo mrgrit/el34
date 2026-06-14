@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}6v6 WAF{% endblock %}
+{% block content %}
+<h1>WAF <span class=muted style="font-weight:400;font-size:0.6em">(WAF Console 풍 — ModSecurity audit + error)</span></h1>
+
+<div class=card>
+<h2>최근 차단/매칭 ({{audit|length}})</h2>
+{% if audit %}
+<table>
+<tr><th>시간</th><th>Rule IDs</th><th>URI</th><th>Client</th></tr>
+{% for a in audit %}
+<tr>
+  <td class=muted>{{a.time}}</td>
+  <td><span class="badge warn">{{a.ids}}</span></td>
+  <td>{{a.uri}}</td>
+  <td class=muted>{{a.client}}</td>
+</tr>
+{% endfor %}
+</table>
+{% else %}
+<p class=muted>아직 audit 이벤트 없음. attacker 에서 SQLi/XSS payload 발사 후 다시 확인.</p>
+<pre>curl -A 'sqlmap/1.7' http://10.20.30.80/juice/
+curl "http://10.20.30.80/juice/?q=' UNION SELECT 1,2--"</pre>
+{% endif %}
+</div>
+
+<div class=card>
+<h2>Apache error.log (ModSecurity 행만)</h2>
+{% if errors %}
+<pre>{% for e in errors %}{{e}}
+{% endfor %}</pre>
+{% else %}
+<p class=muted>(no ModSecurity log lines)</p>
+{% endif %}
+</div>
+{% endblock %}

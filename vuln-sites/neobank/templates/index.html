@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>NeoBank 에 오신 것을 환영합니다</h1>
+<div class="card">
+  <h2>안전한 디지털 뱅킹 서비스</h2>
+  <p>계좌 조회 · 송금 · 대출 · 명세서 발급을 한 곳에서.</p>
+  {% if not user %}
+    <a href="/login" class="btn" style="text-decoration:none; display:inline-block;">로그인</a>
+  {% else %}
+    <a href="/dashboard" class="btn" style="text-decoration:none; display:inline-block;">대시보드로</a>
+  {% endif %}
+</div>
+<div class="card" style="background: #422006; border-color: #ca8a04;">
+  <h2 style="color: #fde047;">⚠️ 학습용 의도적 취약 시스템</h2>
+  <p>이 사이트는 OWASP Top 10 + 금융 도메인 특수 취약점 30종을 의도적으로 포함하고 있습니다.
+  CCC 공방전 / 모의해킹 실습 목적으로만 사용하세요.</p>
+  <p>전체 취약점 카탈로그: <code>contents/vuln-sites/neobank/seed/vulnerabilities.md</code></p>
+</div>
+{% endblock %}

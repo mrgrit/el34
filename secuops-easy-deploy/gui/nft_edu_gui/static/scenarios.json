@@ -1,0 +1,138 @@
+{
+  "appliance": "방화벽 (nftables)",
+  "intro": "각 시나리오는 실제 침해 상황을 가정한다. ① 상황을 읽고 ② 공격을 재현해 본 뒤 ③ '룰 관리' 화면에서 막을 룰을 직접 만들어 적용하고 ④ '검증' 을 눌러 네 룰이 올바른지 실측 확인한다. 모든 룰은 GUI 폼만으로 만들 수 있다.",
+  "scenarios": [
+    {
+      "id": "fw-s01",
+      "title": "악성 IP 즉시 차단",
+      "level": "입문",
+      "situation": "관제 화면에 한 호스트(10.20.30.202)가 짧은 시간에 수백 건의 연결을 시도하는 것이 보인다. 출처가 명확한 단일 공격자다. 가장 빠른 1차 대응은 그 IP 를 통째로 막는 것이다.",
+      "attack": "공격자에서:  for i in $(seq 1 50); do curl -s -m1 http://10.20.30.1/ >/dev/null; done",
+      "task": "forward 체인 맨 위(top)에 출발지 10.20.30.202 를 drop 하는 룰을 만든다.",
+      "build": "체인=forward · 출발지(saddr)=10.20.30.202 · 동작=drop · 위치=top",
+      "hint": "단일 IP 차단은 가장 기본적인 방화벽 대응. forward 체인은 fw 를 '통과'하는 트래픽을 다룬다. 맨 위에 둬야 뒤의 established 허용보다 먼저 평가된다.",
+      "learn": "출발지 IP 기반 차단 · 체인 선택(input=fw 자신 / forward=통과) · 룰 평가 순서(top vs bottom)",
+      "check": {"type": "rule_match", "require": ["ip saddr 10\\.20\\.30\\.202 .*drop"]}
+    },
+    {
+      "id": "fw-s02",
+      "title": "닫혀 있어야 할 관리 포트 보호",
+      "level": "입문",
+      "situation": "내부 운영 도구가 9999/tcp 를 잠깐 열어둔 적이 있다. 지금은 쓰지 않지만 외부에서 9999 로 접속 시도가 들어온다. 이 포트로 들어오는 트래픽을 차단하라.",
+      "attack": "공격자에서:  nc -vz -w2 10.20.30.1 9999",
+      "task": "input 체인에서 tcp 목적지 포트 9999 를 drop 한다.",
+      "build": "체인=input · 프로토콜=tcp · 목적지포트(dport)=9999 · 동작=drop · 위치=top",
+      "hint": "input 체인은 fw 자신에게 오는 트래픽이다. '쓰지 않는 포트는 닫는다'가 최소 권한 원칙.",
+      "learn": "목적지 포트 매칭 · 최소 권한(불필요 포트 폐쇄) · input 체인",
+      "check": {"type": "rule_match", "require": ["tcp dport 9999 .*drop"]}
+    },
+    {
+      "id": "fw-s03",
+      "title": "SSH 무차별 대입 완화 (rate limit)",
+      "level": "기본",
+      "situation": "22/tcp(SSH) 로 같은 출처에서 분당 수백 번 로그인 시도가 관측된다(brute force). SSH 는 막을 수 없지만, 신규 연결 속도를 제한해 무차별 대입을 무력화할 수 있다.",
+      "attack": "공격자에서:  for i in $(seq 1 60); do nc -w1 10.20.30.1 22 </dev/null; done",
+      "task": "input 체인에서, SSH 신규 연결이 분당 10회를 초과하면 drop 하는 룰을 만든다.",
+      "build": "체인=input · 프로토콜=tcp · dport=22 · ct state=new · rate=10/minute + '초과분만(over)' 체크 · 동작=drop · 위치=top",
+      "hint": "'limit rate over 10/minute' 는 분당 10회를 넘는 패킷만 매칭한다. 정상 사용자는 통과하고 무차별 대입만 걸린다.",
+      "learn": "rate limiting · ct state new(신규 연결만) · 'over' 의미 · 가용성을 해치지 않는 방어",
+      "check": {"type": "rule_match", "require": ["tcp dport 22 .*ct state new .*limit rate over 10/minute .*drop"]}
+    },
+    {
+      "id": "fw-s04",
+      "title": "ICMP 플러드 제한",
+      "level": "기본",
+      "situation": "fw 가 초당 수천 개의 ping(ICMP echo) 을 받아 CPU 가 튄다. ping 진단 기능은 살리되, 비정상적인 폭주만 막아야 한다.",
+      "attack": "공격자에서:  ping -f -c 500 10.20.30.1   (flood ping)",
+      "task": "input 체인에서 ICMP 가 초당 5개를 초과하면 drop 한다.",
+      "build": "체인=input · 프로토콜=icmp · rate=5/second + '초과분만(over)' · 동작=drop · 위치=top",
+      "hint": "정상 ping 은 초당 1개 수준이라 통과하고, flood 만 drop 된다. 진단 가용성과 방어의 균형.",
+      "learn": "프로토콜 매칭(icmp) · 초 단위 rate limit · 가용성 보존형 방어",
+      "check": {"type": "rule_match", "require": ["ip protocol icmp .*limit rate over 5/second .*drop"]}
+    },
+    {
+      "id": "fw-s05",
+      "title": "외부에서 내부로의 신규 직접연결 차단",
+      "level": "기본",
+      "situation": "정책상 외부(ext, eth0)에서 시작되는 '신규' 연결이 fw 를 통과해 내부로 직접 들어가서는 안 된다. 이미 맺어진 응답 트래픽(established)만 통과해야 한다.",
+      "attack": "공격자에서:  nmap -sS -p 1-100 10.20.32.80   (외부→dmz 직접 스캔)",
+      "task": "forward 체인에, eth0 으로 들어오는 신규(new) 연결을 drop 하는 룰을 established 허용 룰 '아래(bottom)'에 추가한다.",
+      "build": "체인=forward · 들어오는 인터페이스(iif)=eth0 · ct state=new · 동작=drop · 위치=bottom",
+      "hint": "forward 체인 맨 위엔 이미 'ct state established,related accept' 가 있다. 그 아래에 new drop 을 두면 응답은 통과, 신규 침입은 차단된다.",
+      "learn": "stateful 정책(established 허용 + new 차단) · 인터페이스(iif) 매칭 · 룰 순서의 중요성",
+      "check": {"type": "rule_match", "require": ["iifname \"eth0\" ct state new .*drop"]}
+    },
+    {
+      "id": "fw-s06",
+      "title": "유출(egress) 통제 — 알려진 악성 목적지 차단",
+      "level": "기본",
+      "situation": "CTI(위협 인텔)에서 10.20.30.250 이 C2(명령제어) 서버로 식별됐다. fw 자신이나 내부에서 이 IP 로 나가는 트래픽을 막아 데이터 유출/콜백을 차단하라.",
+      "attack": "fw 에서(검증용):  curl -s -m2 http://10.20.30.250/ ; echo done",
+      "task": "output 체인에서 목적지 10.20.30.250 으로 나가는 트래픽을 drop 한다.",
+      "build": "체인=output · 목적지(daddr)=10.20.30.250 · 동작=drop · 위치=top",
+      "hint": "방화벽은 들어오는 것만 막는 게 아니다. output(나가는) 통제로 C2 콜백·유출을 끊는 것이 egress filtering.",
+      "learn": "egress filtering · output 체인 · 목적지 IP 차단 · CTI IOC 적용",
+      "check": {"type": "rule_match", "require": ["ip daddr 10\\.20\\.30\\.250 .*drop"]}
+    },
+    {
+      "id": "fw-s07",
+      "title": "화이트리스트 — 관리망만 허용",
+      "level": "응용",
+      "situation": "운영 API 포트 9100 은 관리망(10.20.31.0/24)에서만 접근해야 한다. 그 외 모든 출처는 차단(기본 거부)한다.",
+      "attack": "공격자(ext)에서:  nc -vz -w2 10.20.30.1 9100   → 차단돼야 함",
+      "task": "input 체인에 ① 출발지 10.20.31.0/24 의 9100 을 accept 하는 룰을 먼저(top) 넣고, ② 그 아래에 9100 을 모두 drop 하는 룰을 넣는다.",
+      "build": "룰1: 체인=input · saddr=10.20.31.0/24 · tcp dport=9100 · accept · top  /  룰2: 체인=input · tcp dport=9100 · drop · bottom",
+      "hint": "화이트리스트는 '허용을 먼저, 거부를 나중에'. 순서가 바뀌면 관리망도 막힌다.",
+      "learn": "화이트리스트(명시 허용 + 기본 거부) · 룰 순서 설계 · 서브넷(CIDR) 매칭",
+      "check": {"type": "rule_match", "require": ["ip saddr 10\\.20\\.31\\.0/24 tcp dport 9100 .*accept", "tcp dport 9100 .*drop"]}
+    },
+    {
+      "id": "fw-s08",
+      "title": "DNAT — 내부 서비스 안전하게 공개",
+      "level": "응용",
+      "situation": "내부 웹(10.20.32.80:80) 을 외부에 8088 포트로 공개해야 한다. 단, 내부 IP 는 노출하지 않고 fw 가 주소를 바꿔(NAT) 전달한다.",
+      "attack": "공격자에서(적용 후):  curl -s -o /dev/null -w '%{http_code}\\n' http://10.20.30.1:8088/",
+      "task": "NAT 화면에서 DNAT 룰을 만든다: eth0 으로 들어온 tcp 8088 → 10.20.32.80:80 으로 변환.",
+      "build": "NAT 종류=DNAT · 인터페이스=eth0 · 프로토콜=tcp · 외부포트=8088 · 대상IP=10.20.32.80 · 대상포트=80",
+      "hint": "DNAT(목적지 NAT)은 prerouting 에서 일어난다. 외부는 fw 의 8088 만 보고, 실제 내부 주소는 가려진다.",
+      "learn": "DNAT · prerouting 훅 · 포트 포워딩 · 내부 주소 은닉",
+      "check": {"type": "nat_present", "match": "tcp dport 8088 .*dnat to 10\\.20\\.32\\.80:80"}
+    },
+    {
+      "id": "fw-s09",
+      "title": "drop vs reject — 무엇을 언제 쓰나",
+      "level": "응용",
+      "situation": "내부 정책상 7777/tcp 접근은 '명확히 거부'했음을 상대에게 알려야 한다(연결이 빨리 끊겨야 함). 조용히 버리는 drop 대신 거부 응답을 보내는 reject 를 적용한다.",
+      "attack": "공격자에서:  nc -vz -w3 10.20.30.1 7777   (reject 면 즉시 'refused', drop 이면 timeout)",
+      "task": "input 체인에서 tcp 7777 을 reject 한다.",
+      "build": "체인=input · 프로토콜=tcp · dport=7777 · 동작=reject · 위치=top",
+      "hint": "drop = 무응답(공격자는 timeout 까지 기다림, 스텔스). reject = 거부 응답(빠른 실패, 진단 용이). 외부 노출 포트엔 보통 drop, 내부엔 reject 를 쓰는 경우가 많다.",
+      "learn": "drop 와 reject 의 차이 · 스텔스 vs 명시 거부 · 상황별 선택",
+      "check": {"type": "rule_match", "require": ["tcp dport 7777 .*reject"]}
+    },
+    {
+      "id": "fw-s10",
+      "title": "로그를 남기고 차단 + 카운터로 효과 확인",
+      "level": "응용",
+      "situation": "공격자(10.20.30.202) 를 차단하되, 차단이 실제로 동작하는지 '증거(카운터)'로 확인해야 한다. 룰에 log 를 달고, 공격을 재현한 뒤 패킷 카운터가 올라가는지 본다.",
+      "attack": "공격자에서:  for i in $(seq 1 20); do nc -w1 10.20.30.1 80 </dev/null; done",
+      "task": "input 체인 top 에, 출발지 10.20.30.202 를 log(prefix 'EDU-BLOCK: ') + drop 하는 룰을 만들고, 위 공격을 재현한 뒤 검증한다.",
+      "build": "체인=input · saddr=10.20.30.202 · 로그 남기기 체크 + prefix=EDU-BLOCK:  · 동작=drop · 위치=top",
+      "hint": "컨테이너에서는 nft 의 native log 가 파일로 남지 않지만, '카운터(packets)'는 룰이 실제로 트래픽을 막았는지 보여주는 가장 확실한 증거다. 검증 전에 반드시 공격을 재현(트래픽 발생)해야 카운터가 0보다 커진다.",
+      "learn": "log 액션 문법 · 카운터 기반 효과 측정(packets>0) · '증거 기반' 차단 확인 · SIEM 연동으로 가는 다리",
+      "check": {"type": "counter_gt", "match": "ip saddr 10\\.20\\.30\\.202 .*drop", "gt": 0}
+    },
+    {
+      "id": "fw-s11",
+      "title": "악성 IP 그룹(객체·Alias)으로 한 번에 차단",
+      "level": "응용",
+      "situation": "CTI(위협 인텔)에서 악성 IP 가 여러 개 식별됐다. 룰마다 IP 를 하나하나 나열하면 관리가 어렵다. 여러 IP 를 '그룹(객체)' 하나로 묶고, 룰은 그 그룹을 참조하게 만들면 — 새 악성 IP 가 늘어도 그룹에만 추가하면 모든 룰에 즉시 반영된다.",
+      "attack": "공격자(그룹 구성원 중 하나):  for i in $(seq 1 30); do curl -s -m1 http://10.20.30.1/ >/dev/null; done",
+      "task": "① '객체' 화면에서 IP 주소 그룹 `blocklist` 를 만들고 구성원 10.20.30.202, 10.20.30.250 을 넣는다. ② '룰 관리' 에서 forward 체인에 출발지 `@blocklist` 를 drop 하는 룰을 top 에 만든다.",
+      "build": "객체: 이름=blocklist · 종류=IP 주소 그룹 · 구성원=10.20.30.202, 10.20.30.250   /   룰: 체인=forward · 출발지(saddr)=@blocklist · 동작=drop · 위치=top",
+      "hint": "상용 방화벽의 '주소 객체/주소 그룹/Alias' 와 같은 개념 = nftables named set. 룰에서 @그룹이름 으로 참조한다. 정책 변경 시 룰은 그대로 두고 그룹 구성원만 추가/삭제하면 된다(운영 효율 + 일관성).",
+      "learn": "named set(객체/Alias/그룹) · @참조 · 재사용성 · 그룹 1곳 수정 → 모든 룰 반영",
+      "check": {"type": "rule_match", "require": ["set blocklist", "ip saddr @blocklist .*drop"]}
+    }
+  ]
+}

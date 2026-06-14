@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h2 style="margin-top:0;">{{u.display_name}} <span class="tag">{{u.role}}</span>{% if u.verified %} <span class="tag" style="background:#1a3a32;color:#10b981;">✓ verified</span>{% endif %}</h2>
+  <div class="meta">{{u.email}} · 가입 {{u.created_at}}</div>
+  <hr style="border-color:var(--border);margin:14px 0;">
+  <div>{{u.bio|safe}}</div>
+</div>
+{% if me and me.id == u.id %}
+<div class="card">
+  <a class="btn btn-sec" href="/profile/edit">프로필 수정</a>
+</div>
+{% endif %}
+{% endblock %}

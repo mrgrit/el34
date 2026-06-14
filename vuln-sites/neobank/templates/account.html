@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>계좌 {{account.account_number}}</h1>
+<div class="card">
+  <p>잔액 <span class="balance">{{ '{:,.0f}'.format(account.balance) }} {{account.currency}}</span></p>
+  <p>개설 {{account.opened_at}}</p>
+</div>
+<div class="card">
+  <h2>거래 내역</h2>
+  <table>
+    <tr><th>ID</th><th>From</th><th>To</th><th>금액</th><th>메모</th><th>상태</th></tr>
+    {% for t in transfers %}
+    <tr><td>{{t.id}}</td><td>{{t.from_account}}</td><td>{{t.to_account}}</td>
+        <td>{{ '{:,.0f}'.format(t.amount) }}</td>
+        <td>{{t.memo|safe}}</td>{# V10 stored XSS — safe filter 사용 (의도적) #}
+        <td>{{t.status}}</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>SSO 로그인 (SAML)</h1>
+<div class="card">
+  <p>외부 IDP 에서 발급된 SAML Response 를 제출하세요.</p>
+  <form method="POST" action="/saml/login">
+    <p>SAMLResponse (base64 또는 평문 XML):<br>
+    <textarea name="SAMLResponse" rows="10" placeholder="<saml:Response>...</saml:Response>"></textarea></p>
+    <button type="submit" class="btn">로그인</button>
+  </form>
+  <div class="warn" style="margin-top:14px;">
+    예시: <code>&lt;Response&gt;&lt;ssn&gt;900101-1234567&lt;/ssn&gt;&lt;/Response&gt;</code>
+  </div>
+</div>
+{% endblock %}

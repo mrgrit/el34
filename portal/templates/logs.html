@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}6v6 Logs{% endblock %}
+{% block content %}
+<h1>Logs <span class=muted style="font-weight:400;font-size:0.6em">(CloudWatch 풍 — docker logs 실시간)</span></h1>
+
+<div class=card>
+<form>
+  <label>Container:
+    <select name=svc id=svc onchange="document.getElementById('out').setAttribute('hx-get','/logs/'+this.value+'/tail?lines=200')">
+      {% for s in services %}
+      <option value="{{s}}">{{s}}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <span class=muted style="margin-left:14px">5 초마다 자동 갱신</span>
+</form>
+</div>
+
+<div class=card>
+<pre id=out hx-get="/logs/{{services[0]}}/tail?lines=200" hx-trigger="load, every 5s" hx-swap=innerHTML>(loading...)</pre>
+</div>
+{% endblock %}

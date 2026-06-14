@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card" style="min-height:420px;">
+  <h2 style="margin-top:0;">💬 AICompanion 대화</h2>
+  <div id="thread" style="min-height:300px;max-height:60vh;overflow:auto;padding:8px;"></div>
+  <hr style="border-color:var(--border);">
+  <form id="cf" onsubmit="return false;">
+    <textarea id="msg" placeholder="메시지를 입력하세요..." required></textarea>
+    <details style="margin:6px 0 8px;">
+      <summary class="muted">고급 옵션 (system prompt prefix)</summary>
+      <textarea id="sysadd" placeholder="(client-system) 추가 지시사항" style="margin-top:6px;min-height:50px;"></textarea>
+    </details>
+    <button class="btn" type="submit" onclick="send()">보내기</button>
+  </form>
+</div>
+<script>
+async function send(){
+  const m = document.getElementById('msg').value.trim();
+  const sys = document.getElementById('sysadd').value;
+  if(!m) return;
+  add('u', m);
+  document.getElementById('msg').value='';
+  const r = await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({message:m, system:sys})});
+  const j = await r.json();
+  add('a', j.answer || JSON.stringify(j), j.retrieved);
+}
+function add(who, text, retrieved){
+  const t = document.getElementById('thread');
+  const d = document.createElement('div');
+  d.className = 'bubble ' + who;
+  // V08: assistant 응답을 raw HTML 로 렌더 (insecure output handling)
+  if(who==='a') d.innerHTML = text;
+  else d.textContent = text;
+  t.appendChild(d);
+  if(retrieved && retrieved.length){
+    const r = document.createElement('div');
+    r.className='muted'; r.style.marginLeft='8px';
+    r.textContent = '🔎 retrieved: ' + retrieved.map(x=>x.title).join(', ');
+    t.appendChild(r);
+  }
+  t.scrollTop = t.scrollHeight;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,13 @@
+services:
+  govportal:
+    build: .
+    image: govportal:vulnerable
+    container_name: govportal
+    ports:
+      - "3002:3002"
+    restart: unless-stopped
+    networks:
+      - ccc-vuln
+networks:
+  ccc-vuln:
+    external: true

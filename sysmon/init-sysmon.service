@@ -1,0 +1,11 @@
+[Unit]
+Description=6v6 sysmon-host init — sysmon -i + SSH key + sshd
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/etc/cont-init.d/00-sysmon.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

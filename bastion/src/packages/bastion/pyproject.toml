@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ccc-bastion"
+version = "1.0.0"
+description = "CCC Bastion — AI 기반 자율보안 에이전트 (Manager + SubAgent 협업)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+authors = [{name = "CCC Team"}]
+keywords = ["security", "ai-agent", "autonomous-security", "siem", "soar"]
+
+# 런타임 의존성 (최소)
+dependencies = [
+    "httpx>=0.24",
+    "pyyaml>=6.0",
+    "fastapi>=0.100",
+    "uvicorn[standard]>=0.23",
+    "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "ruff>=0.1"]
+full = ["psycopg2-binary>=2.9", "python-multipart>=0.0.6"]
+
+[project.scripts]
+bastion-api = "bastion.api_main:main"
+bastion-tui = "bastion.tui_main:main"
+
+[project.urls]
+Homepage = "https://github.com/mrgrit/bastion"
+Repository = "https://github.com/mrgrit/bastion"
+Documentation = "https://github.com/mrgrit/bastion/blob/main/ARCHITECTURE.md"
+
+# 소스 레이아웃 — 패키지 분리 시 bastion/ 로 이름만 변경
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["bastion*"]

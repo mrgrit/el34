@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ko"><head>
+<meta charset="utf-8"><title>AdminConsole — DevOps Panel</title>
+<style>
+:root { --bg:#0f0a1f; --card:#1a1230; --border:#3b2a5e; --txt:#e9e1ff; --muted:#a597d4; --acc:#a78bfa; --acc2:#7c3aed; --warn:#f59e0b; --danger:#dc2626; }
+*{box-sizing:border-box} body{margin:0;font-family:JetBrains Mono,Consolas,monospace;background:var(--bg);color:var(--txt);font-size:14px}
+header{background:#06010f;border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;gap:18px}
+header h1{margin:0;font-size:16px;color:var(--acc)} header h1 b{color:var(--warn)}
+nav a{color:var(--muted);text-decoration:none;margin-right:14px;font-size:13px}
+nav a:hover{color:var(--acc)}
+.me{margin-left:auto;font-size:12px;color:var(--muted)}
+main{max-width:1100px;margin:18px auto;padding:0 16px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:16px;margin-bottom:14px}
+.btn{background:var(--acc2);color:#fff;border:0;padding:7px 14px;border-radius:5px;cursor:pointer;font-family:inherit;font-size:13px;text-decoration:none;display:inline-block}
+.btn-warn{background:var(--warn);color:#0f0a1f}
+.btn-danger{background:var(--danger)}
+input,textarea,select{background:#06010f;color:var(--txt);border:1px solid var(--border);padding:8px;border-radius:4px;width:100%;font-family:inherit;font-size:13px;margin-bottom:8px}
+textarea{min-height:90px}
+pre{background:#06010f;border:1px solid var(--border);padding:10px;border-radius:5px;color:#cffaee;overflow:auto;max-height:380px;font-size:12px}
+table{width:100%;border-collapse:collapse} th,td{padding:7px;border-bottom:1px solid var(--border);text-align:left;font-size:12px} th{color:var(--muted)}
+.err{background:#3a1414;border:1px solid var(--danger);color:#fecaca;padding:9px;border-radius:5px;margin-bottom:10px}
+.ok{background:#142a1a;border:1px solid #16a34a;color:#bbf7d0;padding:9px;border-radius:5px;margin-bottom:10px}
+a{color:var(--acc)} h2,h3{color:var(--acc);font-weight:500}
+.tag{display:inline-block;background:#3b2a5e;color:var(--acc);padding:2px 7px;border-radius:10px;font-size:10px;margin-right:5px;text-transform:uppercase}
+</style></head>
+<body>
+<header>
+  <h1>⚙️ AdminConsole <b>·</b> DevOps Control Panel</h1>
+  <nav><a href="/">대시보드</a><a href="/tools">Tools</a><a href="/notes">Notes</a><a href="/forgot">PW Reset</a></nav>
+  <div class="me">{% if me %}{{me.username}} <span class="tag">{{me.role}}</span> · <a href="/logout">logout</a>{% else %}<a href="/login">login</a>{% endif %}</div>
+</header>
+<main>{% block content %}{% endblock %}</main>
+</body></html>

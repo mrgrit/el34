@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{user.email}} 님의 대시보드</h1>
+<div class="card">
+  <h2>내 계좌 ({{accounts|length}})</h2>
+  <table>
+    <tr><th>ID</th><th>계좌번호</th><th>잔액</th><th>통화</th><th>개설일</th><th>상세</th></tr>
+    {% for a in accounts %}
+    <tr>
+      <td>{{a.id}}</td>
+      <td>{{a.account_number}}</td>
+      <td class="balance">{{ '{:,.0f}'.format(a.balance) }}</td>
+      <td>{{a.currency}}</td>
+      <td>{{a.opened_at}}</td>
+      <td><a href="/accounts/{{a.id}}">조회 →</a></td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

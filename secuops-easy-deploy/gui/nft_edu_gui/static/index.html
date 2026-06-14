@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>nftables 방화벽 콘솔 · 6v6 교육용</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div id="app">
+  <!-- 사이드바 -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo">🧱</div>
+      <div>
+        <div class="brand-title">nftables 방화벽</div>
+        <div class="brand-sub">6v6 교육용 콘솔</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <a class="nav-item active" data-view="dashboard">📊 대시보드</a>
+      <a class="nav-item" data-view="interfaces">🔌 인터페이스</a>
+      <a class="nav-item" data-view="rules">📜 룰 관리</a>
+      <a class="nav-item" data-view="objects">📦 객체 (그룹·Alias)</a>
+      <a class="nav-item" data-view="nat">🔁 NAT</a>
+      <a class="nav-item" data-view="conntrack">🔗 Stateful (연결추적)</a>
+      <a class="nav-item" data-view="activity">📈 로그 · 활동</a>
+      <a class="nav-item" data-view="siem">🛰️ SIEM 연동</a>
+      <a class="nav-item" data-view="scenarios">🎯 침해대응 훈련</a>
+    </nav>
+    <div class="sidebar-foot">
+      <div>학습 모드 · 변경은 <code>six_filter</code>/<code>six_nat</code> 에만 적용</div>
+    </div>
+  </aside>
+
+  <!-- 본문 -->
+  <main class="main">
+    <header class="topbar">
+      <div class="topbar-title" id="view-title">대시보드</div>
+      <div class="topbar-status" id="topstatus">
+        <span class="pill" id="st-host">host —</span>
+        <span class="pill" id="st-nft">nft —</span>
+        <span class="pill" id="st-rules">룰 —</span>
+        <span class="pill" id="st-ct">연결 —</span>
+        <button class="btn btn-ghost" id="btn-refresh">↻ 새로고침</button>
+      </div>
+    </header>
+
+    <section class="view" id="view-dashboard">
+      <div class="cards" id="dash-cards"></div>
+      <div class="panel">
+        <div class="panel-h">이 방화벽은 무엇을 하나요?</div>
+        <div class="panel-b help">
+          <p><b>방화벽(nftables)</b> 은 6v6 의 가장 바깥 관문입니다. 외부(ext)에서 들어온 트래픽은
+          이 fw 를 거쳐야 내부로 갈 수 있습니다. 이 콘솔에서 만드는 모든 동작은
+          <b>실제 <code>nft</code> 명령</b> 으로 변환되어 적용됩니다 — 버튼이 아니라 명령을 배웁니다.</p>
+          <ul>
+            <li><b>input</b> — 방화벽 자신에게 오는 트래픽</li>
+            <li><b>forward</b> — 방화벽을 <i>통과</i>해 내부로 가는 트래픽</li>
+            <li><b>output</b> — 방화벽에서 나가는 트래픽</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="view hidden" id="view-interfaces">
+      <div class="panel"><div class="panel-h">네트워크 인터페이스 · 존(zone)</div>
+        <div class="panel-b"><table class="tbl" id="iface-tbl"></table>
+        <p class="note">fw 는 두 개의 다리를 가집니다. <code>eth0</code> 은 외부(ext)로, <code>eth1</code> 은 ips 로 가는 사이망(pipe)으로 향합니다.</p></div>
+      </div>
+    </section>
+
+    <section class="view hidden" id="view-rules">
+      <div class="grid2">
+        <div class="panel">
+          <div class="panel-h">룰 만들기 <span class="tag">폼 → 명령 미리보기 → 적용</span></div>
+          <div class="panel-b">
+            <form id="rule-form" class="form">
+              <label>체인
+                <select name="chain"><option value="input">input (fw 자신)</option>
+                  <option value="forward">forward (통과)</option>
+                  <option value="output">output (나가는)</option></select></label>
+              <label>출발지 IP/대역 (saddr)<input name="saddr" placeholder="예: 10.20.30.202 · 10.20.31.0/24 · @blocklist(그룹)"></label>
+              <label>목적지 IP/대역 (daddr)<input name="daddr" placeholder="예: 10.20.30.250 · @badhosts(그룹)"></label>
+              <div class="row">
+                <label>프로토콜
+                  <select name="proto"><option value="">(없음)</option><option value="tcp">tcp</option>
+                    <option value="udp">udp</option><option value="icmp">icmp</option></select></label>
+                <label>목적지 포트 (dport)<input name="dport" placeholder="예: 22, 80, 9100"></label>
+              </div>
+              <div class="row">
+                <label>들어오는 IF (iif)<input name="iif" placeholder="예: eth0"></label>
+                <label>나가는 IF (oif)<input name="oif" placeholder="예: eth1"></label>
+              </div>
+              <div class="row">
+                <label>연결 상태 (ct state)
+                  <select name="ct_state"><option value="">(없음)</option><option value="new">new</option>
+                    <option value="established,related">established,related</option></select></label>
+                <label>rate 제한<input name="limit_rate" placeholder="예: 10/minute"></label>
+              </div>
+              <div class="row">
+                <label class="chk"><input type="checkbox" name="limit_over"> 초과분만(over)</label>
+                <label class="chk"><input type="checkbox" name="log"> 로그 남기기(log)</label>
+                <label>log prefix<input name="log_prefix" placeholder="EDU: "></label>
+              </div>
+              <div class="row">
+                <label>동작
+                  <select name="action"><option value="accept">accept (허용)</option>
+                    <option value="drop">drop (조용히 버림)</option>
+                    <option value="reject">reject (거부 응답)</option></select></label>
+                <label>위치
+                  <select name="position"><option value="top">top (맨 위 · insert)</option>
+                    <option value="bottom">bottom (맨 아래 · add)</option></select></label>
+              </div>
+              <div class="btns">
+                <button type="button" class="btn" id="btn-preview">① 명령 미리보기</button>
+                <button type="button" class="btn btn-primary" id="btn-apply" disabled>② 적용</button>
+              </div>
+            </form>
+            <div class="cmdbox" id="rule-cmd">여기에 생성된 <code>nft</code> 명령이 표시됩니다.</div>
+            <div class="result" id="rule-result"></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-h">현재 룰셋
+            <span class="tag" id="reset-counters" role="button">카운터 리셋</span></div>
+          <div class="panel-b" id="ruleset-view">불러오는 중…</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="view hidden" id="view-objects">
+      <div class="grid2">
+        <div class="panel">
+          <div class="panel-h">객체(그룹·Alias) 만들기 <span class="tag">여러 IP/포트를 묶어 룰에서 @이름 으로 재사용</span></div>
+          <div class="panel-b">
+            <p class="note">상용 방화벽의 <b>주소 객체 / 주소 그룹 / Alias</b> 에 해당한다. nftables 에서는
+              <b>named set</b> 으로 만든다. 여러 악성 IP 를 한 그룹으로 묶어두면, 룰마다 IP 를 나열하지 않고
+              <code>@그룹이름</code> 한 번으로 참조한다. 그룹에 IP 를 추가/삭제하면 그 그룹을 쓰는 모든 룰에 즉시 반영된다.</p>
+            <form id="obj-form" class="form">
+              <label>그룹 이름<input name="name" placeholder="예: blocklist (영문/숫자/_, 첫 글자 영문)"></label>
+              <label>종류
+                <select name="type"><option value="ipv4_addr">IP 주소 그룹</option>
+                  <option value="inet_service">포트 그룹</option></select></label>
+              <label>구성원 (쉼표/공백 구분)<input name="elements" placeholder="예: 10.20.30.202, 10.20.30.250"></label>
+              <div class="btns">
+                <button type="button" class="btn" id="obj-preview">① 명령 미리보기</button>
+                <button type="button" class="btn btn-primary" id="obj-apply" disabled>② 적용</button>
+              </div>
+            </form>
+            <div class="cmdbox" id="obj-cmd">여기에 생성될 <code>nft add set</code> / <code>nft add element</code> 명령이 표시됩니다.</div>
+            <div class="result" id="obj-result"></div>
+            <p class="note">만든 그룹은 <b>룰 관리</b> 의 출발지/목적지에 <code>@그룹이름</code> 으로 사용 (예: 출발지 = <code>@blocklist</code>).</p>
+          </div>
+        </div>
+        <div class="panel"><div class="panel-h">현재 객체(그룹) 목록</div>
+          <div class="panel-b" id="obj-list">불러오는 중…</div></div>
+      </div>
+    </section>
+
+    <section class="view hidden" id="view-nat">
+      <div class="grid2">
+        <div class="panel"><div class="panel-h">NAT 만들기</div>
+          <div class="panel-b">
+            <form id="nat-form" class="form">
+              <label>종류
+                <select name="kind"><option value="dnat">DNAT (외부→내부 포워딩)</option>
+                  <option value="snat">SNAT (출발지 변경)</option>
+                  <option value="masquerade">Masquerade</option></select></label>
+              <div class="row">
+                <label>인터페이스<input name="iif" value="eth0" placeholder="eth0(DNAT)/eth1(SNAT)"></label>
+                <label>프로토콜<select name="proto"><option value="tcp">tcp</option><option value="udp">udp</option></select></label>
+              </div>
+              <div class="row dnat-only">
+                <label>외부 포트 (dport)<input name="dport" placeholder="8088"></label>
+                <label>대상 IP<input name="to_ip" placeholder="10.20.32.80"></label>
+                <label>대상 포트<input name="to_port" placeholder="80"></label>
+              </div>
+              <div class="row snat-only hidden">
+                <label>출발지 대역(saddr)<input name="saddr" placeholder="10.20.40.0/24"></label>
+                <label>변경할 IP(SNAT)<input name="snat_ip" placeholder="10.20.31.1"></label>
+              </div>
+              <div class="btns">
+                <button type="button" class="btn" id="nat-preview">① 명령 미리보기</button>
+                <button type="button" class="btn btn-primary" id="nat-apply" disabled>② 적용</button>
+              </div>
+            </form>
+            <div class="cmdbox" id="nat-cmd">DNAT 은 prerouting, SNAT/Masquerade 는 postrouting 에 적용됩니다.</div>
+            <div class="result" id="nat-result"></div>
+          </div></div>
+        <div class="panel"><div class="panel-h">six_nat 현재 룰</div>
+          <div class="panel-b" id="nat-view">불러오는 중…</div></div>
+      </div>
+    </section>
+
+    <section class="view hidden" id="view-conntrack">
+      <div class="panel"><div class="panel-h">연결 추적 (conntrack) <span class="tag" id="ct-count">—</span></div>
+        <div class="panel-b">
+          <p class="note">방화벽은 패킷을 하나씩 보지 않고 <b>연결(흐름)</b> 단위로 기억합니다. 한 번 허용된
+          연결의 응답 패킷은 <code>ct state established,related</code> 로 자동 통과합니다. 이것이 stateful inspection 입니다.</p>
+          <table class="tbl" id="ct-tbl"></table>
+        </div>
+      </div>
+    </section>
+
+    <section class="view hidden" id="view-activity">
+      <div class="panel"><div class="panel-h">룰별 카운터 (실제 트래픽이 룰을 탄 증거)
+        <span class="tag" id="act-reset" role="button">카운터 리셋</span></div>
+        <div class="panel-b" id="counter-view">불러오는 중…</div></div>
+      <div class="panel"><div class="panel-h">이벤트 로그 <span class="tag">/var/log/nft_edu/events.log → Wazuh 로 전송</span></div>
+        <div class="panel-b" id="event-view">불러오는 중…</div></div>
+    </section>
+
+    <section class="view hidden" id="view-siem">
+      <div class="panel"><div class="panel-h">SIEM (Wazuh) 연동</div>
+        <div class="panel-b">
+          <p class="note">방화벽 이벤트(적용/삭제/리셋)는 <code>/var/log/nft_edu/events.log</code> 에 JSON 으로 남습니다.
+          연동을 켜면 fw 의 Wazuh 에이전트가 이 파일을 감시(tail)하여 SIEM 매니저(10.20.32.100)로 전송하고,
+          Wazuh 대시보드에서 방화벽 활동을 볼 수 있습니다.</p>
+          <div id="siem-status" class="siem-status">상태 확인 중…</div>
+          <div class="btns">
+            <button class="btn btn-primary" id="siem-enable">연동 켜기</button>
+            <button class="btn btn-ghost" id="siem-disable">연동 끄기</button>
+          </div>
+          <div class="cmdbox" id="siem-detail"></div>
+        </div></div>
+    </section>
+
+    <section class="view hidden" id="view-scenarios">
+      <div class="panel"><div class="panel-h">침해대응 훈련 <span class="tag">상황 → 공격 재현 → 룰 작성 → 검증</span></div>
+        <div class="panel-b"><p class="note" id="scn-intro"></p></div></div>
+      <div id="scn-list"></div>
+    </section>
+  </main>
+</div>
+<div id="toast" class="toast hidden"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

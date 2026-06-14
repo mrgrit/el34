@@ -1,0 +1,17 @@
+title: SSH Brute Force - Repeated Failed Password
+id: el34-0001-ssh-bruteforce
+status: experimental
+description: sshd 에 대한 반복적인 비밀번호 실패 — 무차별 대입 시도 가능성
+logsource:
+    product: linux
+    service: sshd
+detection:
+    selection:
+        keywords:
+            - 'Failed password'
+            - 'authentication failure'
+    condition: selection
+level: medium
+tags:
+    - attack.credential_access
+    - attack.t1110

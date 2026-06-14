@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card" style="max-width:380px;margin:60px auto;">
+  <h2 style="margin-top:0;">로그인</h2>
+  {% if error %}<div class="err">{{error}}</div>{% endif %}
+  <form method="POST">
+    <input name="email" placeholder="이메일" required>
+    <input type="password" name="password" placeholder="비밀번호" required>
+    <button class="btn" type="submit">로그인</button>
+    <a href="/register" style="margin-left:10px;">가입</a>
+  </form>
+  <div class="meta" style="margin-top:14px;">시드: alice@user.kr / alice123</div>
+</div>
+{% endblock %}

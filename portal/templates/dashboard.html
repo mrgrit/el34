@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}6v6 Dashboard{% endblock %}
+{% block content %}
+<h1>Dashboard</h1>
+
+<div class=row>
+  <div class=card>
+    <div class=muted>컨테이너</div>
+    <div class=stat>{{running}}<small>/{{total}}</small></div>
+    {% if missing %}<div class=muted>누락: {{missing|join(', ')}}</div>{% endif %}
+  </div>
+  <div class=card>
+    <div class=muted>최근 IDS alerts</div>
+    <div class=stat>{{latest_ids_alerts|length}}</div>
+    <div class=muted>최근 30개 중 alert event</div>
+  </div>
+  <div class=card>
+    <div class=muted>외부 링크</div>
+    <div style="margin-top:8px">
+      <a class=btn href="http://" onclick="this.href='http://'+location.hostname+'/'">랜딩 페이지</a>
+      <a class="btn alt" href="http://" onclick="this.href='http://'+location.hostname+':5601/'" style="margin-top:6px">SIEM</a>
+    </div>
+  </div>
+</div>
+
+<div class=card>
+<h2>컨테이너 상태</h2>
+<table>
+<tr><th>이름</th><th>상태</th><th>IP</th><th>이미지</th><th>포트</th></tr>
+{% for c in containers %}
+<tr>
+  <td>{{c.name}}</td>
+  <td>{% if c.status == 'running' %}<span class="badge ok">running</span>{% else %}<span class="badge danger">{{c.status}}</span>{% endif %}</td>
+  <td class=muted>{{c.ip}}</td>
+  <td class=muted>{{c.image}}</td>
+  <td class=muted>{{c.ports}}</td>
+</tr>
+{% endfor %}
+</table>
+</div>
+
+{% if latest_ids_alerts %}
+<div class=card>
+<h2>최근 IDS Alerts</h2>
+<table>
+<tr><th>시간</th><th>SID</th><th>Signature</th><th>Src</th><th>Dst</th></tr>
+{% for a in latest_ids_alerts %}
+<tr>
+  <td class=muted>{{a.time}}</td>
+  <td class=muted>{{a.sid}}</td>
+  <td>{{a.sig}}</td>
+  <td class=muted>{{a.src}}</td>
+  <td class=muted>{{a.dst}}</td>
+</tr>
+{% endfor %}
+</table>
+</div>
+{% endif %}
+{% endblock %}

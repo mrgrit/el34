@@ -1,0 +1,17 @@
+<Sysmon schemaversion="4.30">
+  <EventFiltering>
+    <RuleGroup groupRelation="or">
+      <ProcessCreate onmatch="include">
+        <Image condition="contains">curl</Image>
+        <Image condition="contains">wget</Image>
+        <Image condition="contains">nmap</Image>
+        <Image condition="contains">sqlmap</Image>
+      </ProcessCreate>
+      <NetworkConnect onmatch="include">
+        <DestinationPort>22</DestinationPort>
+        <DestinationPort>443</DestinationPort>
+        <DestinationPort>3389</DestinationPort>
+      </NetworkConnect>
+    </RuleGroup>
+  </EventFiltering>
+</Sysmon>

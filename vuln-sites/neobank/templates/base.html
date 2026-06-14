@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>{% block title %}NeoBank{% endblock %}</title>
+  <style>
+    body { font-family: -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; margin: 0; }
+    nav { background: #1e293b; padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3b82f6; }
+    nav .logo { font-size: 22px; font-weight: 800; color: #3b82f6; }
+    nav a { color: #94a3b8; text-decoration: none; margin-left: 16px; font-size: 14px; }
+    nav a:hover { color: #e2e8f0; }
+    .container { max-width: 1100px; margin: 30px auto; padding: 0 24px; }
+    h1 { color: #3b82f6; }
+    h2 { color: #cbd5e1; border-bottom: 1px solid #334155; padding-bottom: 6px; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+    .btn { background: #3b82f6; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; }
+    .btn-danger { background: #dc2626; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 8px; text-align: left; border-bottom: 1px solid #334155; }
+    th { color: #64748b; font-size: 12px; text-transform: uppercase; }
+    input, select, textarea { background: #0f172a; color: #e2e8f0; border: 1px solid #475569; padding: 8px; border-radius: 4px; width: 100%; box-sizing: border-box; }
+    .balance { font-size: 28px; font-weight: 700; color: #10b981; }
+    .footer-warn { background: #7f1d1d; color: #fef2f2; padding: 8px 24px; font-size: 12px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="footer-warn">⚠️ 의도적 취약 시스템 — CCC 폐쇄망 학습용 only. 외부 접근 금지.</div>
+  <nav>
+    <span class="logo">🏦 NeoBank</span>
+    <div>
+      <a href="/">홈</a>
+      <a href="/dashboard">대시보드</a>
+      <a href="/transfer">송금</a>
+      <a href="/search">거래 검색</a>
+      {% if user %}<a href="/logout">로그아웃 ({{user.email}})</a>{% else %}<a href="/login">로그인</a>{% endif %}
+    </div>
+  </nav>
+  <div class="container">{% block content %}{% endblock %}</div>
+</body>
+</html>

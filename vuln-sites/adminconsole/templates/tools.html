@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h2 style="margin-top:0;">🔧 Network / Compute Tools</h2>
+  <form method="POST">
+    <select name="tool">
+      <option value="ping" {% if tool=='ping' %}selected{% endif %}>ping</option>
+      <option value="dig" {% if tool=='dig' %}selected{% endif %}>dig</option>
+      <option value="whois" {% if tool=='whois' %}selected{% endif %}>whois</option>
+      <option value="fetch" {% if tool=='fetch' %}selected{% endif %}>fetch URL</option>
+      <option value="git_clone" {% if tool=='git_clone' %}selected{% endif %}>git ls-remote</option>
+      <option value="calc" {% if tool=='calc' %}selected{% endif %}>calc (eval)</option>
+    </select>
+    <input name="target" placeholder="target (host / url / expr)" required>
+    <button class="btn" type="submit">실행</button>
+  </form>
+  {% if out %}<h3>output</h3><pre>{{out}}</pre>{% endif %}
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0;">기타 endpoint</h3>
+  <ul style="color:var(--muted);font-size:13px;">
+    <li><code>GET /api/webhook/test?url=</code> — webhook 테스트 (SSRF)</li>
+    <li><code>GET /files/read?path=</code> — 파일 미리보기</li>
+    <li><code>GET /logs/view?file=app.log</code> — 로그 뷰</li>
+    <li><code>POST /api/jobs/import</code> (raw pickle / yaml / xml)</li>
+    <li><code>POST /upload</code> — 파일 업로드</li>
+  </ul>
+</div>
+{% endblock %}

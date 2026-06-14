@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ko"><head>
+<meta charset="utf-8"><title>MediForum — 의료 커뮤니티</title>
+<style>
+  :root { --bg:#0b1f1a; --card:#0f2b25; --border:#1a4f43; --txt:#cfeae0; --muted:#7fa89c; --acc:#10b981; --acc2:#14b8a6; }
+  *{box-sizing:border-box} body{margin:0;font-family:-apple-system,Segoe UI,Pretendard,sans-serif;background:var(--bg);color:var(--txt)}
+  header{background:#06140f;border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;gap:18px}
+  header h1{margin:0;font-size:18px;color:var(--acc)} header h1 span{color:var(--acc2);font-weight:400}
+  header nav a{color:var(--muted);text-decoration:none;margin-right:14px;font-size:14px}
+  header nav a:hover{color:var(--acc)}
+  .me{margin-left:auto;font-size:13px;color:var(--muted)}
+  main{max-width:980px;margin:24px auto;padding:0 16px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:18px;margin-bottom:14px}
+  .btn{background:var(--acc);color:#06140f;border:0;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:600;text-decoration:none;display:inline-block}
+  .btn-sec{background:#1a3a32;color:var(--txt)}
+  .btn-red{background:#dc2626;color:#fff}
+  input,textarea,select{background:#06140f;color:var(--txt);border:1px solid var(--border);padding:9px;border-radius:5px;width:100%;font-size:14px;margin-bottom:8px}
+  textarea{font-family:inherit;min-height:90px}
+  .err{background:#3a1414;border:1px solid #dc2626;color:#fecaca;padding:10px;border-radius:5px;margin-bottom:10px}
+  table{width:100%;border-collapse:collapse} th,td{padding:8px;border-bottom:1px solid var(--border);text-align:left;font-size:13px}
+  th{color:var(--muted);font-weight:500}
+  .tag{display:inline-block;background:#1a3a32;color:var(--acc2);padding:2px 8px;border-radius:10px;font-size:11px;margin-right:6px}
+  .meta{color:var(--muted);font-size:12px}
+  a{color:var(--acc2)} h2,h3{color:var(--acc)}
+</style></head>
+<body>
+<header>
+  <h1>⚕️ MediForum <span>· 의료 익명 커뮤니티</span></h1>
+  <nav>
+    <a href="/">홈</a><a href="/search">검색</a><a href="/dm">쪽지</a><a href="/profile/edit">프로필</a>
+  </nav>
+  <div class="me">
+  {% if me %}{{me.display_name}} ({{me.role}}) · <a href="/logout">logout</a>
+  {% else %}<a href="/login">login</a> · <a href="/register">register</a>{% endif %}
+  </div>
+</header>
+<main>{% block content %}{% endblock %}</main>
+</body></html>

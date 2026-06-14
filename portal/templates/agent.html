@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}6v6 Agent{% endblock %}
+{% block content %}
+<h1>Agent <span class=muted style="font-weight:400;font-size:0.6em">(Bastion API)</span></h1>
+
+<div class=card>
+<h2>Bastion 헬스 ({{api_url}})</h2>
+<pre>{{health|tojson(indent=2)}}</pre>
+</div>
+
+<div class=card>
+<h2>등록된 타겟</h2>
+{% if targets %}
+<table>
+<tr><th>이름</th><th>IP</th><th>역할</th></tr>
+{% for t in targets %}
+<tr><td>{{t.name}}</td><td class=muted>{{t.ip}}</td><td class=muted>{{t.role}}</td></tr>
+{% endfor %}
+</table>
+{% else %}
+<p class=muted>API 미응답 또는 인증 실패 — health 응답 확인</p>
+{% endif %}
+</div>
+
+<div class=card>
+<h2>스킬 카탈로그</h2>
+{% if skills %}
+<table>
+<tr><th>ID</th><th>대상</th><th>설명</th></tr>
+{% for s in skills %}
+<tr><td>{{s.id}}</td><td class=muted>{{s.target}}</td><td>{{s.desc}}</td></tr>
+{% endfor %}
+</table>
+{% else %}
+<p class=muted>스킬 카탈로그 없음</p>
+{% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,17 @@
+services:
+  aicompanion:
+    build: .
+    image: aicompanion:vulnerable
+    container_name: aicompanion
+    environment:
+      - LLM_BACKEND=mock         # 'ollama' 로 바꾸면 실제 LLM 사용
+      - OLLAMA_URL=http://host.docker.internal:11434
+      - OLLAMA_MODEL=gemma3:4b
+    ports:
+      - "3005:3005"
+    restart: unless-stopped
+    networks:
+      - ccc-vuln
+networks:
+  ccc-vuln:
+    external: true

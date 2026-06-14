@@ -1,0 +1,23 @@
+<!--
+  6v6 명령 로깅 rules. decoder(6v6-cmdlog)가 추출한 field 는 data.{cmd_host,cmd_user,...}.
+  Assessor 의 command_ran 질의는 group 'cmdlog' + data.command 매칭으로 동작한다.
+  레벨 3(기본 alert 로깅 임계) → alerts.json 기록 → command_ran 질의 가능.
+-->
+<group name="6v6,cmdlog,">
+
+  <!-- 모든 셸 명령 (감사) -->
+  <rule id="100260" level="3">
+    <decoded_as>6v6-cmdlog</decoded_as>
+    <description>6v6 cmd: $(cmd_user)@$(cmd_host) rc=$(cmd_rc) — $(command)</description>
+    <group>cmdlog,audit,</group>
+  </rule>
+
+  <!-- 주의 명령 (방화벽/권한/리버스셸/공격도구) — 상위 레벨로 강조 -->
+  <rule id="100261" level="9">
+    <if_sid>100260</if_sid>
+    <field name="command" type="pcre2">nft\s|iptables\s|nftables|systemctl\s|service\s|rm\s+-rf|chmod\s+777|/etc/passwd|/etc/shadow|curl[^|]*\|\s*(ba)?sh|wget[^|]*\|\s*(ba)?sh|\bnc\s+-|\bncat\s|reverse|\bnmap\s|sqlmap|hydra\s|msfconsole|metasploit</field>
+    <description>6v6 cmd(주의): $(cmd_user)@$(cmd_host) — $(command)</description>
+    <group>cmdlog,audit,attack,</group>
+  </rule>
+
+</group>

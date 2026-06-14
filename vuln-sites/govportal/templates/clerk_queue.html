@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>처리 대기 중 신청서 (Clerk 화면)</h1>
+<div class="card">
+  <p>현재 권한 레벨: <b>{{user.level}}</b></p>
+  <table>
+    <tr><th>ID</th><th>구분</th><th>내용 (raw)</th><th>제출일</th></tr>
+    {% for a in apps %}
+    <tr>
+      <td>{{a.id}}</td>
+      <td>{{a.application_type}}</td>
+      <td>{{a.content|safe}}</td>
+      <td>{{a.submitted_at}}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

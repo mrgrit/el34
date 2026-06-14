@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}6v6 Audit{% endblock %}
+{% block content %}
+<h1>Audit <span class=muted style="font-weight:400;font-size:0.6em">(CloudTrail 풍 — bastion auth 이벤트)</span></h1>
+
+<div class=card>
+<h2>최근 SSH 진입 이벤트</h2>
+{% if lines %}
+<pre>{% for l in lines %}{{l}}
+{% endfor %}</pre>
+{% else %}
+<p class=muted>(no auth events 또는 bastion 이 stdout 으로 sshd 로그 미출력)</p>
+{% endif %}
+</div>
+{% endblock %}

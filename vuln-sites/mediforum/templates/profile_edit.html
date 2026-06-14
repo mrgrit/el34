@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h2 style="margin-top:0;">프로필 수정</h2>
+  <form method="POST" action="/profile/edit">
+    <label class="meta">별명</label>
+    <input name="display_name" value="{{me.display_name}}">
+    <label class="meta">한 줄 소개 (HTML 허용)</label>
+    <textarea name="bio">{{me.bio}}</textarea>
+    <label class="meta">전화</label>
+    <input name="phone" value="{{me.phone}}">
+    <label class="meta">이메일</label>
+    <input name="email" value="{{me.email}}">
+    <button class="btn" type="submit">저장</button>
+  </form>
+</div>
+<div class="card">
+  <h3 style="margin-top:0;">아바타 업로드</h3>
+  <form method="POST" action="/profile/avatar" enctype="multipart/form-data">
+    <input type="file" name="file">
+    <button class="btn btn-sec" type="submit">업로드</button>
+  </form>
+</div>
+{% endblock %}

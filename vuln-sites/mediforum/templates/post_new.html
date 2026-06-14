@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h2 style="margin-top:0;">새 글 쓰기</h2>
+  <form method="POST" action="/posts/new">
+    <input name="title" placeholder="제목" required>
+    <select name="tag">
+      <option value="general">일반</option>
+      <option value="tip">건강팁</option>
+      <option value="share">경험공유</option>
+      <option value="qna">Q&amp;A</option>
+    </select>
+    <textarea name="body" placeholder="본문 (HTML 허용)" required></textarea>
+    <button class="btn" type="submit">발행</button>
+  </form>
+</div>
+{% endblock %}

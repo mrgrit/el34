@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <div><span class="tag">{{p.tag}}</span></div>
+  <h2 style="margin-top:6px;">{{p.title}}</h2>
+  <div class="meta">by <a href="/profile/{{p.author_id}}">{{p.display_name}}</a> · {{p.created_at}}</div>
+  <hr style="border-color:var(--border);margin:14px 0;">
+  <div class="post-body">{{p.body|safe}}</div>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0;">댓글 ({{cmts|length}})</h3>
+  {% for c in cmts %}
+    <div style="border-bottom:1px solid var(--border);padding:8px 0;">
+      <div class="meta"><strong>{{c.display_name or '?'}}</strong> · {{c.created_at}}</div>
+      <div>{{c.body|safe}}</div>
+    </div>
+  {% endfor %}
+  {% if me %}
+  <form method="POST" action="/posts/{{p.id}}/comment" style="margin-top:14px;">
+    <textarea name="body" placeholder="댓글 작성..." required></textarea>
+    <button class="btn" type="submit">댓글 달기</button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>6v6 실습 환경</title>
+<style>
+:root { --accent: #2563eb; --bg: #f8fafc; --card: #fff; --muted: #64748b; --border: #e2e8f0; }
+* { box-sizing: border-box; }
+body { font-family: -apple-system, "Segoe UI", system-ui, sans-serif; background: var(--bg); color: #0f172a; margin: 0; line-height: 1.55; }
+.wrap { max-width: 1100px; margin: 2em auto; padding: 0 1.2em; }
+h1 { font-size: 1.9em; border-bottom: 3px solid var(--accent); padding-bottom: 10px; color: var(--accent); }
+h2 { font-size: 1.25em; border-bottom: 1px solid var(--border); padding-bottom: 6px; margin-top: 2.4em; }
+.banner { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 12px 16px; border-radius: 6px; margin: 1.2em 0; font-size: 0.95em; }
+.grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin: 1em 0; }
+@media (max-width: 900px) { .grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 600px) { .grid { grid-template-columns: 1fr; } }
+a.card { display: block; padding: 14px 16px; border: 1px solid var(--border); border-radius: 8px; text-decoration: none; color: #0f172a; background: var(--card); transition: all .15s; }
+a.card:hover { border-color: var(--accent); background: #eff6ff; transform: translateY(-1px); }
+a.card .meta { color: var(--muted); font-size: 0.86em; display: block; margin-top: 3px; }
+.tag { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; margin-right: 6px; vertical-align: middle; }
+.tag.attack { background: #fee2e2; color: #b91c1c; }
+.tag.defense { background: #d1fae5; color: #047857; }
+.tag.mgmt { background: #dbeafe; color: #1d4ed8; }
+.tag.ai { background: #f3e8ff; color: #7c3aed; }
+.tag.edu { background: #cffafe; color: #0e7490; }
+pre { background: #1e293b; color: #e2e8f0; padding: 14px 18px; border-radius: 8px; overflow-x: auto; font-size: 0.88em; }
+code { background: #e2e8f0; padding: 1px 6px; border-radius: 4px; font-size: 0.92em; }
+/* pre 내부의 code 는 배경/색 상속으로 가독성 확보 (외부 inline code 와 분리) */
+pre code { background: transparent; color: inherit; padding: 0; font-size: inherit; border-radius: 0; }
+table { border-collapse: collapse; width: 100%; margin: 1em 0; font-size: 0.9em; }
+th, td { border: 1px solid var(--border); padding: 6px 9px; text-align: left; }
+th { background: #f1f5f9; }
+.muted { color: var(--muted); font-size: 0.88em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>6v6 실습 환경 — CCC 인프라 단일 VM Docker 버전</h1>
+
+<div class="banner">
+이 페이지는 <code>6v6-web</code> (Apache + ModSecurity) 가 응답한 랜딩 페이지입니다.
+<strong>모든 취약 사이트 트래픽은 web 의 ModSecurity 검사를 통과한 후</strong> 백엔드 컨테이너로 전달됩니다.
+</div>
+
+<h2>취약 웹 7개 (학습용)</h2>
+<p class="muted">학생 PC hosts 파일(<code>/etc/hosts</code> · 윈도우 <code>C:\Windows\System32\drivers\etc\hosts</code>)에 아래 <strong>두 줄</strong> 추가 — <strong>각 줄이 IP 로 시작</strong>해야 합니다:</p>
+<pre><code>&lt;VM_IP&gt;  6v6.lab juice.6v6.lab dvwa.6v6.lab neobank.6v6.lab govportal.6v6.lab mediforum.6v6.lab admin.6v6.lab ai.6v6.lab portal.6v6.lab
+&lt;VM_IP&gt;  siem.6v6.lab bastion.6v6.lab assessor.6v6.lab fw-gui.6v6.lab ips-gui.6v6.lab waf-gui.6v6.lab</code></pre>
+<p class="muted">⚠️ 한 줄로 길게 넣다가 에디터에서 줄바꿈되면 둘째 줄(siem·콘솔)에 IP 가 빠져 <strong>그 항목만 “안 열림”</strong>이 됩니다. <code>juice</code>~<code>portal</code> 은 되는데 <code>siem</code>/<code>*-gui</code> 만 안 열리면 거의 이 경우 — 위처럼 두 줄로 나눠 각각 IP 로 시작하세요. (확인: <code>ping siem.6v6.lab</code> → VM IP)</p>
+<div class="grid">
+  <a class="card" href="http://juice.6v6.lab/"><span class="tag attack">취약</span>OWASP Juice Shop<span class="meta">juice.6v6.lab — 종합 OWASP Top 10</span></a>
+  <a class="card" href="http://dvwa.6v6.lab/"><span class="tag attack">취약</span>DVWA<span class="meta">dvwa.6v6.lab — Damn Vulnerable Web App</span></a>
+  <a class="card" href="http://neobank.6v6.lab/"><span class="tag attack">취약</span>NeoBank<span class="meta">neobank.6v6.lab — 가상 은행 (30 취약점)</span></a>
+  <a class="card" href="http://govportal.6v6.lab/"><span class="tag attack">취약</span>GovPortal<span class="meta">govportal.6v6.lab — 가상 정부 포털 (25 취약점)</span></a>
+  <a class="card" href="http://mediforum.6v6.lab/"><span class="tag attack">취약</span>MediForum<span class="meta">mediforum.6v6.lab — 가상 의료 커뮤니티</span></a>
+  <a class="card" href="http://admin.6v6.lab/"><span class="tag attack">취약</span>AdminConsole<span class="meta">admin.6v6.lab — RCE/XXE/SSRF 종합</span></a>
+  <a class="card" href="http://ai.6v6.lab/"><span class="tag ai">AI</span>AICompanion<span class="meta">ai.6v6.lab — OWASP LLM Top 10 (mock LLM)</span></a>
+</div>
+
+<h2>관리/모니터링</h2>
+<div class="grid">
+  <a class="card" href="http://portal.6v6.lab/">
+    <span class="tag mgmt">관리</span>관리 포털
+    <span class="meta">portal.6v6.lab — 컨테이너 / 네트워크 / 로그 / WAF / IDS / Audit / Wazuh</span>
+  </a>
+  <a class="card" href="http://siem.6v6.lab/">
+    <span class="tag defense">방어</span>SIEM (Wazuh Dashboard)
+    <span class="meta">siem.6v6.lab — 실제 Wazuh 4.10 dashboard. 로그인: admin / SecretPassword</span>
+  </a>
+  <a class="card" href="http://bastion.6v6.lab/health">
+    <span class="tag mgmt">관리</span>Bastion API
+    <span class="meta">bastion.6v6.lab/health — 점프 호스트 헬스</span>
+  </a>
+</div>
+<p class="muted">위 도메인 모두 web 컨테이너의 Apache + ModSecurity 를 통과하여 백엔드로 reverse proxy. 직접 IP:port 접근도 그대로 살아있음 (관리/디버그용).</p>
+
+<h2>보안장비 교육 콘솔 (secuops-easy 특강)</h2>
+<p class="muted">방화벽·IPS·WAF 를 장비형 웹 콘솔로 직접 다루는 입문 특강. 폼 조작이 만드는 실제 명령(<code>nft</code> / Suricata rule / SecRule)을 미리보기로 보여준 뒤 적용한다. (fw 의 HAProxy 가 Host 헤더로 라우팅 — 위 hosts 한 줄에 세 이름 포함됨)</p>
+<div class="grid">
+  <a class="card" href="http://fw-gui.6v6.lab/"><span class="tag edu">교육</span>방화벽 콘솔 (nftables)<span class="meta">fw-gui.6v6.lab — 룰 / NAT / conntrack / 로그 / SIEM + 침해대응 시나리오 10</span></a>
+  <a class="card" href="http://ips-gui.6v6.lab/"><span class="tag edu">교육</span>IPS 콘솔 (Suricata)<span class="meta">ips-gui.6v6.lab — 탐지룰 구조·작성 / eve.json / SIEM + 침해대응 시나리오 30</span></a>
+  <a class="card" href="http://waf-gui.6v6.lab/"><span class="tag edu">교육</span>WAF 콘솔 (ModSecurity)<span class="meta">waf-gui.6v6.lab — SecRule 작성 / CRS / audit 분석 / SIEM + 침해대응 시나리오 30</span></a>
+</div>
+<p class="muted">교안·실습(6주)은 CCC 6v6 Training 메뉴의 <strong>secuops-easy</strong> 과목. 콘솔의 모든 동작은 적용 전 미리보기/문법검사를 거쳐 안전하게 연습할 수 있다.</p>
+
+<h2>로그 통합 — Wazuh agent + syslog 두 패러다임</h2>
+<table>
+<tr><th>Source 컨테이너</th><th>방식</th><th>로그 종류</th><th>전송 경로</th></tr>
+<tr><td>fw</td><td>Wazuh agent</td><td>nftables / haproxy / syslog</td><td>fw:agent → siem:1514/tcp</td></tr>
+<tr><td>ips</td><td>Wazuh agent</td><td>Suricata eve.json + syslog</td><td>ips:agent → siem:1514/tcp</td></tr>
+<tr><td>web</td><td>Wazuh agent</td><td>Apache access/error/modsec_audit.log</td><td>web:agent → siem:1514/tcp</td></tr>
+<tr><td>bastion</td><td>rsyslog forward</td><td>sshd auth.log + system</td><td>bastion → siem:514/udp</td></tr>
+<tr><td>attacker</td><td>rsyslog forward</td><td>shell history + system</td><td>attacker → siem:514/udp</td></tr>
+</table>
+<p class="muted"><strong>학습 포인트</strong>: Wazuh agent 는 자체 binary 가 로그 수집 + 디코딩 + 알림 관리자에게 보낸다 (TCP/1514, 암호화).
+syslog forward 는 rsyslog 가 모든 로그를 그대로 UDP/514 로 전달하고, manager 가 직접 디코딩한다.
+agent = 정밀 + 보안적으로 우수, syslog = 단순 + 표준 호환.</p>
+
+<h2>학생 PC SSH 접속 (Bastion ProxyJump)</h2>
+<pre><code>Host 6v6-bastion
+  HostName &lt;VM_IP&gt;
+  Port 2204
+  User ccc
+
+Host 6v6-attacker
+  HostName &lt;VM_IP&gt;
+  Port 2202
+  User ccc
+
+Host 6v6-fw 6v6-ips 6v6-web 6v6-siem 6v6-portal
+  ProxyJump 6v6-bastion
+  User ccc
+
+# 모두 비밀번호 ccc (ProxyJump 키는 6v6.sh up 이 자동 생성).
+# siem 웹 대시보드: https://siem.6v6.lab/  (admin / SecretPassword)</code></pre>
+
+<p class="muted">기본 SSH 비밀번호: <code>ccc</code> · Bastion API 키: <code>ccc-api-key-2026</code></p>
+
+<h2>네트워크 구성 (4-tier: ext → pipe → dmz → int, + user/wan)</h2>
+<p class="muted">외부 요청은 <code>fw</code>(80/443) 한 곳으로만 들어와 <strong>fw(방화벽) → ips(Suricata) → web(WAF) → int 백엔드</strong> 체인을 강제로 거친다. int 의 취약 사이트는 직접 노출되지 않는다.</p>
+<table>
+<tr><th>컨테이너</th><th>Zone / IP</th><th>역할</th><th>외부 포트</th></tr>
+<tr><td>6v6-bastion</td><td>ext 10.20.30.201</td><td>SSH 점프 + Bastion API + rsyslog forward</td><td>2204</td></tr>
+<tr><td>6v6-attacker</td><td>ext 10.20.30.202</td><td>공격자(insider) nmap/hydra/sqlmap/nikto</td><td>2202</td></tr>
+<tr><td>6v6-attacker-ext</td><td>wan 10.20.20.202</td><td>공격자(outsider — 공개 포트로만, 옵션)</td><td>2203</td></tr>
+<tr><td><strong>6v6-fw</strong></td><td>ext .1 ↔ pipe .1</td><td><strong>방화벽</strong> nftables L3 forward + DNAT + HAProxy</td><td>80, 443, 9100</td></tr>
+<tr><td><strong>6v6-ips</strong></td><td>pipe .2 ↔ dmz .1 ↔ user .1</td><td><strong>IPS</strong> Suricata 인라인 sniff + Wazuh agent</td><td>—</td></tr>
+<tr><td>6v6-web</td><td>dmz .80 ↔ int .80</td><td>Apache + ModSecurity(WAF) + 7 vhost + Wazuh agent</td><td>—</td></tr>
+<tr><td>6v6-siem</td><td>dmz 10.20.32.100</td><td>Wazuh manager (official 4.10)</td><td>—</td></tr>
+<tr><td>6v6-wazuh-indexer</td><td>dmz 10.20.32.110</td><td>Wazuh indexer (OpenSearch)</td><td>—</td></tr>
+<tr><td>6v6-wazuh-dashboard</td><td>dmz 10.20.32.120</td><td>Wazuh dashboard (siem.6v6.lab)</td><td>—</td></tr>
+<tr><td>6v6-portal</td><td>dmz 10.20.32.50</td><td>관리 대시보드 (FastAPI + HTMX)</td><td>—</td></tr>
+<tr><td>6v6-assessor</td><td>dmz 10.20.32.55</td><td>읽기 전용 평가 수집 (채점용, 옵션)</td><td>—</td></tr>
+<tr><td>6v6-juiceshop</td><td>int 10.20.40.81</td><td>OWASP Juice Shop</td><td>—</td></tr>
+<tr><td>6v6-dvwa</td><td>int 10.20.40.82</td><td>DVWA</td><td>—</td></tr>
+<tr><td>6v6-neobank</td><td>int 10.20.40.83</td><td>NeoBank (Flask)</td><td>—</td></tr>
+<tr><td>6v6-govportal</td><td>int 10.20.40.84</td><td>GovPortal (Flask)</td><td>—</td></tr>
+<tr><td>6v6-mediforum</td><td>int 10.20.40.85</td><td>MediForum (Flask)</td><td>—</td></tr>
+<tr><td>6v6-adminconsole</td><td>int 10.20.40.86</td><td>AdminConsole (Flask)</td><td>—</td></tr>
+<tr><td>6v6-aicompanion</td><td>int 10.20.40.87</td><td>AICompanion (Flask + LLM)</td><td>—</td></tr>
+</table>
+<p class="muted">방화벽/IPS/WAF 교육 콘솔(fw-gui/ips-gui/waf-gui)은 각각 fw/ips/web 컨테이너의 :8080 에서 동작하며, fw 의 HAProxy 가 Host 헤더로 라우팅한다(이미지에 내장되어 컨테이너 기동 시 자동 실행).</p>
+
+<p class="muted" style="margin-top:3em;border-top:1px solid var(--border);padding-top:1em">
+6v6 — CCC 단일 VM Docker 버전 · <a href="https://github.com/mrgrit/6v6">github.com/mrgrit/6v6</a>
+</p>
+
+</div>
+</body>
+</html>

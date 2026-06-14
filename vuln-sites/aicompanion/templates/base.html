@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ko"><head>
+<meta charset="utf-8"><title>AICompanion — 사내 AI 어시스턴트</title>
+<style>
+:root { --bg:#02141a; --card:#082b35; --border:#0f4854; --txt:#d8fafe; --muted:#5fa3b3; --acc:#22d3ee; --acc2:#06b6d4; --warn:#f59e0b; --danger:#dc2626; }
+*{box-sizing:border-box} body{margin:0;font-family:-apple-system,Segoe UI,Pretendard,sans-serif;background:linear-gradient(180deg,var(--bg) 0%, #021820 100%);color:var(--txt);min-height:100vh}
+header{background:#01101a;border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;gap:18px}
+header h1{margin:0;font-size:17px;color:var(--acc)} header h1 b{color:var(--acc2)}
+nav a{color:var(--muted);text-decoration:none;margin-right:14px;font-size:13px}
+nav a:hover{color:var(--acc)}
+.me{margin-left:auto;font-size:12px;color:var(--muted)}
+main{max-width:980px;margin:18px auto;padding:0 16px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:14px;box-shadow:0 6px 20px rgba(0,0,0,0.3)}
+.btn{background:var(--acc);color:#02141a;border:0;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:600;text-decoration:none;display:inline-block}
+.btn-sec{background:#0f4854;color:var(--txt)}
+input,textarea,select{background:#01101a;color:var(--txt);border:1px solid var(--border);padding:9px;border-radius:5px;width:100%;font-size:14px;margin-bottom:8px}
+textarea{font-family:inherit;min-height:90px}
+.err{background:#3a1414;border:1px solid var(--danger);color:#fecaca;padding:10px;border-radius:5px;margin-bottom:10px}
+.bubble{padding:10px 14px;border-radius:10px;margin:8px 0;max-width:75%}
+.bubble.u{background:var(--acc2);color:#02141a;margin-left:auto;text-align:right}
+.bubble.a{background:#0f4854;border:1px solid var(--border)}
+.muted{color:var(--muted);font-size:12px}
+table{width:100%;border-collapse:collapse} th,td{padding:7px;border-bottom:1px solid var(--border);text-align:left;font-size:13px} th{color:var(--muted)}
+a{color:var(--acc2)} h2,h3{color:var(--acc)}
+code{background:#01101a;padding:2px 5px;border-radius:3px;color:var(--acc)}
+.tag{display:inline-block;background:var(--border);color:var(--acc);padding:2px 7px;border-radius:10px;font-size:11px;margin-right:5px}
+</style></head>
+<body>
+<header>
+  <h1>🤖 AICompanion <b>·</b> 사내 AI 어시스턴트</h1>
+  <nav><a href="/chat">대화</a><a href="/kb">지식베이스</a><a href="/profile">프로필</a></nav>
+  <div class="me">{% if me %}{{me.username}} <span class="tag">{{me.role}}</span> · <a href="/logout">logout</a>{% else %}<a href="/login">login</a>{% endif %}</div>
+</header>
+<main>{% block content %}{% endblock %}</main>
+</body></html>
