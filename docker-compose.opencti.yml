@@ -151,7 +151,7 @@ services:
       - PROVIDERS__LOCAL__STRATEGY=LocalStrategy
       - APP__HEALTH_ACCESS_KEY=${OPENCTI_HEALTHCHECK_ACCESS_KEY}
     ports:
-      - "${OPENCTI_PORT}:8080"
+      - "192.168.136.145:${OPENCTI_PORT}:8080"   # el34: 내부전용(호스트 Firefox), LAN 격리
     depends_on:
       redis:
         condition: service_healthy

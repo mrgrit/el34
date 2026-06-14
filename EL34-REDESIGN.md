@@ -50,10 +50,13 @@ cp .env.example .env            # 값 채우기 (LLM_BASE_URL=외부 GPU)
 docker compose build
 docker compose up -d            # 코어
 ./el34-net.sh                   # ★ 호스트 글루 (bridge-nf-call=0 + DOCKER-USER) — 필수
-# TI/EDR 오버레이:
-docker compose -f docker-compose.yaml -f docker-compose.misp.yml \
-  -f docker-compose.opencti.yml -f docker-compose.sysmon.yml \
-  --env-file .env --env-file .env.misp --env-file .env.opencti up -d
+# TI/EDR 오버레이 — ★ -f 순서 중요: opencti 를 misp 보다 먼저(misp 가 redis=valkey 정의를
+# 마지막에 덮어써야 함. 반대 순서면 redis 이미지/커맨드 불일치로 exit 127).
+docker compose -f docker-compose.yaml -f docker-compose.opencti.yml \
+  -f docker-compose.misp.yml -f docker-compose.sysmon.yml \
+  --env-file .env --env-file .env.opencti --env-file .env.misp up -d
+# 참고: MISP/OpenCTI/MISP-guard 는 .136.145(NAT)에 바인딩 → 호스트 Firefox 전용·LAN 격리.
+#       .env.opencti(OPENCTI_BASE_URL) / .env.misp(BASE_URL) 도 192.168.136.145 로 맞출 것.
 cd sigma && ./install-sigma.sh  # Sigma 룰 적재
 ```
 

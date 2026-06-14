@@ -107,8 +107,8 @@ services:
       start_period: 30s
       start_interval: 30s
     ports:
-      - "${CORE_HTTP_PORT:-80}:80"
-      - "${CORE_HTTPS_PORT:-443}:443"
+      - "192.168.136.145:${CORE_HTTP_PORT:-80}:80"     # el34: 내부전용(호스트 Firefox), LAN 격리
+      - "192.168.136.145:${CORE_HTTPS_PORT:-443}:443"
     volumes:
       - "./configs/:/var/www/MISP/app/Config/:Z"
       - "./logs/:/var/www/MISP/app/tmp/logs/:Z"
