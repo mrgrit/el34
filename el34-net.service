@@ -1,0 +1,17 @@
+# el34 호스트 네트워크 글루 — docker 기동 후 자동 재적용 (부팅/재시작 후 체인 보존).
+# 설치:  sudo cp el34-net.service /etc/systemd/system/ && sudo systemctl enable --now el34-net
+# (컨테이너를 '운영 중' 재생성한 경우엔: sudo systemctl restart el34-net  또는  ./el34-net.sh)
+[Unit]
+Description=el34 host network glue (bridge-nf-call=0 + DOCKER-USER inter-bridge ACCEPT)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# 컨테이너/브리지가 올라온 뒤 적용되도록 약간 대기
+ExecStartPre=/bin/sleep 8
+ExecStart=/home/ccc/el34/el34-net.sh
+
+[Install]
+WantedBy=multi-user.target
