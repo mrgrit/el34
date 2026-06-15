@@ -48,11 +48,18 @@ LAN 격리 확인: 위 서비스 모두 외부면 .161 에서 접근 시 000(거
 
 ## ⚠ 스킵 / 인프라 이슈 (사유 명시)
 
-1. **외부 공격자 VM .202 DOWN** — ping/ARP incomplete (전원 OFF 추정). `.202→.161` end-to-end 미실측.
-   → 동일 LAN의 .79 를 외부 클라이언트로 사용해 **외부 진입 경로·출처보존은 이미 입증**. .202 전원 인가 후 동일 경로 재확인만 하면 됨.
+1. ~~외부 공격자 VM .202 DOWN~~ → **[해결·검증완료 2026-06-15]** .202 전원 인가 후 실측:
+   `.202 → .161 → fw → ips → waf → app` 에서 **WAF/Apache 로그·ModSec `remote_address`·Suricata
+   `src_ip`·SIEM `data.src_ip` 전부 `192.168.0.202` 보존**. SIEM 에 Suricata 탐지 93건
+   (SQLi UNION SELECT, sqlmap UA, XSS, Path Traversal)이 `data.src_ip:192.168.0.202` 로 귀속.
+   dvwa SQLi 는 ModSec 가 403 차단. → 외부 공격자 IP 식별·차단 완전 동작.
 2. **tubewar(.107) 콘텐츠 기반 검증 미수행** — .107 은 SSH(:22)만 열림, 자격증명/API 없음(별도 플랫폼).
    시나리오·미션 콘텐츠로의 검증은 tubewar 접근 권한 확보 후 진행 필요.
 3. **MISP healthcheck 간헐 unhealthy** — 헬스체크 timeout 1s 가 과도(서비스는 301/302 정상 응답, 원본 6v6도 동일). 기능 무관·표시상 이슈. (현재는 healthy)
+4. **WAF/Apache 알림의 SIEM `data.srcip` 미색인** — 외부 공격자 IP 추적은 Suricata(`data.src_ip`)
+   경로로 완결(93건 귀속). ModSec/Apache 쪽은 파일 레벨엔 `remote_address`로 출처가 보존되나
+   Wazuh 알림 `data.srcip` 로는 색인되지 않음(web access-log 디코더/localfile 튜닝 시 해결).
+   핵심(외부 IP 식별·차단)엔 영향 없음.
 
 ## ⚠ 운영 주의 (중요)
 - **`el34-net.sh` 는 `docker compose up`/컨테이너 재생성 때마다 재실행**해야 함.
