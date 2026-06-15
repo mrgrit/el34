@@ -318,6 +318,8 @@ services:
       context: .
       dockerfile: assessor/Dockerfile
     hostname: assessor
+    ports:
+      - "192.168.0.151:9201:8000"   # tubewar/CC 채점 접근
     networks:
       dmz:
         ipv4_address: 10.20.32.55

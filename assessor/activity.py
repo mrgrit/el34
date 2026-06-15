@@ -128,12 +128,12 @@ def _service_probe(executor):
         except Exception:
             return None
 
-    out["apache"] = "up" if running("6v6-web", "apache2") else "down"
-    out["suricata"] = "up" if running("6v6-ips", "suricata") else "down"
-    out["haproxy"] = "up" if running("6v6-fw", "haproxy") else "down"
+    out["apache"] = "up" if running("el34-web", "apache2") else "down"
+    out["suricata"] = "up" if running("el34-ips", "suricata") else "down"
+    out["haproxy"] = "up" if running("el34-fw", "haproxy") else "down"
     # 최근 Apache 에러 라인 수(요약)
     try:
-        r = executor.exec("6v6-web", ["sh", "-c",
+        r = executor.exec("el34-web", ["sh", "-c",
                                       "tail -n 200 /var/log/apache2/error.log 2>/dev/null | wc -l"])
         out["recent_apache_errors"] = int((r.stdout or "0").strip() or 0)
     except Exception:
