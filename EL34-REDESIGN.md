@@ -42,23 +42,19 @@ ens38 = 192.168.136.145 에 publish:
 - 보안 콘솔 GUI: fw `:8081`, ips `:8082`, waf `:8083`
 - MISP / OpenCTI (TI 플랫폼)
 
-## 배포 절차 (.151)
+## 배포 절차 (.151) — 갓 설치한 Ubuntu 에서 한 방
 ```bash
-# 0) 1회: daemon.json 에 {"userland-proxy": false} → systemctl restart docker
-cd ~/el34
-cp .env.example .env            # 값 채우기 (LLM_BASE_URL=외부 GPU)
-docker compose build
-docker compose up -d            # 코어
-./el34-net.sh                   # ★ 호스트 글루 (bridge-nf-call=0 + DOCKER-USER) — 필수
-# TI/EDR 오버레이 — ★ -f 순서 중요: opencti 를 misp 보다 먼저(misp 가 redis=valkey 정의를
-# 마지막에 덮어써야 함. 반대 순서면 redis 이미지/커맨드 불일치로 exit 127).
-docker compose -f docker-compose.yaml -f docker-compose.opencti.yml \
-  -f docker-compose.misp.yml -f docker-compose.sysmon.yml \
-  --env-file .env --env-file .env.opencti --env-file .env.misp up -d
-# 참고: MISP/OpenCTI/MISP-guard 는 .136.145(NAT)에 바인딩 → 호스트 Firefox 전용·LAN 격리.
-#       .env.opencti(OPENCTI_BASE_URL) / .env.misp(BASE_URL) 도 192.168.136.145 로 맞출 것.
-cd sigma && ./install-sigma.sh  # Sigma 룰 적재
+git clone https://github.com/mrgrit/el34.git && cd el34
+sudo ./el34.sh install     # Docker + daemon.json(userland-proxy=false)  ※ 그룹반영 위해 새 셸
+./el34.sh up               # 인증서 생성 → env 생성 → build → core+overlay up → net glue → systemd → sigma
 ```
+`el34.sh up` 이 자동 수행: Wazuh 인증서 생성(단일 CA 통일), `.env/.env.misp/.env.opencti` 생성,
+코어 build+up, **오버레이 opencti→misp 순서**(redis=valkey 충돌 방지), `el34-net.sh`+systemd 설치,
+Sigma 적재. (개별: `./el34.sh {install|up|down [-v]|net|certs|env|sigma}`)
+
+> 네트워크 전제: 호스트 IP 가 compose 와 일치해야 함 — 웹 `192.168.0.161`(ens37),
+> 내부 GUI `192.168.136.145`(ens38). DHCP 가변이면 netplan static 권장(README/세션 참조).
+> MISP/OpenCTI 는 `.136.145` 에 바인딩 → 호스트 Firefox 전용·LAN 격리.
 
 ## 출처 IP 보존 — 검증 결과
 공격자 → fw → ips → web 경로에서 **보안장비 전 계층이 진짜 출처 IP를 봄**:
