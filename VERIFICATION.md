@@ -61,6 +61,15 @@ LAN 격리 확인: 위 서비스 모두 외부면 .161 에서 접근 시 000(거
    Wazuh 알림 `data.srcip` 로는 색인되지 않음(web access-log 디코더/localfile 튜닝 시 해결).
    핵심(외부 IP 식별·차단)엔 영향 없음.
 
+## ✅ Fresh 배포 검증 (2026-06-19, .151 완전 teardown 후 github clone → el34.sh)
+빈 상태(컨테이너/이미지/certs/.env 0)에서 **`git clone` → `sudo ./el34.sh install` → `./el34.sh up`** 만으로:
+- Wazuh 인증서 자동 생성(단일 CA 통일, verify OK) + `.env/.env.misp/.env.opencti` 자동 생성
+- 코어 build/up + 오버레이(opencti→misp) + el34-net + systemd + Sigma → **41 컨테이너 / unhealthy 0**
+- 출처 IP 보존 재확인: `.202 → .161` 공격이 web 로그 `192.168.0.202`, dvwa SQLi **ModSec 403 차단**,
+  SIEM `data.src_ip:192.168.0.202` 색인.
+- 이 과정에서 발견·수정한 갭: (1) 인증서 생성기가 파일을 root/0400 으로 잠금 → up 을 root 로 실행 +
+  인증서 ccc:644 정규화, (2) MISP db 첫부팅 레이스 → overlay up 3회 재시도.
+
 ## ⚠ 운영 주의 (중요)
 - **`el34-net.sh` 는 `docker compose up`/컨테이너 재생성 때마다 재실행**해야 함.
   Docker 가 컨테이너 재생성 시 iptables 를 재작성하며 DOCKER-USER inter-bridge ACCEPT 룰을 흩뜨림
