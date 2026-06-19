@@ -173,7 +173,12 @@ cmd_up() {
     docker compose up -d
     ./el34-net.sh
     echo "[el34] === overlay up (opencti→misp 순서: redis=valkey 충돌 방지) ==="
-    docker compose $OVERLAY $ENVF up -d
+    # MISP db(mysql) 첫부팅이 healthcheck 보다 느려 depends_on 이 일시 실패할 수 있음 → 재시도.
+    for attempt in 1 2 3; do
+        if docker compose $OVERLAY $ENVF up -d; then break; fi
+        echo "[el34] overlay up 실패(시도 $attempt/3) — MISP db 첫부팅 등 일시적. 25s 후 재시도"
+        sleep 25
+    done
     ./el34-net.sh           # 오버레이가 core 재생성 → 글루 재적용
     install_systemd
     echo "[el34] === sigma 적재 ==="
