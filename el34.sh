@@ -90,22 +90,30 @@ ensure_certs() {
         -v "$(pwd)/wazuh-config/certs:/certificates/" \
         -v "$(pwd)/wazuh-config/config/certs.yml:/config/certs.yml" \
         wazuh/wazuh-certs-generator:0.0.2 2>&1 | sed 's/^/  /' || true
-    # 생성물 권한 평탄화 (generator 가 UID/600 으로 잠금 → 마운트·읽기 가능하게)
-    $SUDO chown -R "$(id -u):$(id -g)" wazuh-config/certs 2>/dev/null || true
-    ( cd wazuh-config/certs
-      # ── 단일 CA 통일 ──────────────────────────────────────────────
-      # generator 는 indexer/dashboard(root-ca) 와 manager(root-ca-manager) 를 별도 CA 로 만든다.
-      # 그러면 filebeat(manager)↔indexer mTLS 가 서로 다른 CA 라 실패한다. 6v6 검증 레이아웃대로
-      # manager 인증서를 root-ca 로 '재발급'하여 전 노드가 단일 root-ca 를 신뢰하게 통일한다.
-      openssl req -new -key wazuh.manager-key.pem -out /tmp/_mgr.csr \
-        -subj "/C=US/L=California/O=Wazuh/OU=Wazuh/CN=wazuh.manager" 2>/dev/null
-      printf "subjectAltName=DNS:wazuh.manager,DNS:wazuh-manager,DNS:siem,DNS:localhost,IP:127.0.0.1\n" > /tmp/_mgr.ext
-      openssl x509 -req -in /tmp/_mgr.csr -CA root-ca.pem -CAkey root-ca.key -CAcreateserial \
-        -days 3650 -sha256 -extfile /tmp/_mgr.ext -out wazuh.manager.pem 2>/dev/null
-      cp -f root-ca.pem root-ca-manager.pem; cp -f root-ca.key root-ca-manager.key
-      rm -f /tmp/_mgr.csr /tmp/_mgr.ext root-ca.srl
-      chmod 644 *.pem 2>/dev/null || true; chmod 600 *-key.pem *.key 2>/dev/null || true )
-    echo "[el34] 인증서 준비 (단일 CA 통일): $(ls wazuh-config/certs/*.pem 2>/dev/null | wc -l) .pem"
+    # ── 권한 정규화 ── generator 가 디렉터리 0500 / 파일 0400 / UID 999 로 잠금.
+    # 재발급(write)·마운트(read) 가능하도록 소유·모드를 먼저 평탄화한다 (set -e 안전).
+    $SUDO chown -R "$(id -u):$(id -g)" wazuh-config/certs || true
+    $SUDO chmod -R u+rwX wazuh-config/certs || true
+    chmod 700 wazuh-config/certs || true
+    # ── 단일 CA 통일 ── generator 는 indexer/dashboard(root-ca) 와 manager(root-ca-manager) 를
+    # 별도 CA 로 만든다 → filebeat(manager)↔indexer mTLS 가 서로 다른 CA 라 실패. manager 인증서를
+    # root-ca 로 재발급하여 전 노드가 단일 root-ca 를 신뢰하게 통일한다 (6v6 검증 레이아웃).
+    local cd_certs="wazuh-config/certs"
+    openssl req -new -key "$cd_certs/wazuh.manager-key.pem" -out /tmp/_mgr.csr \
+        -subj "/C=US/L=California/O=Wazuh/OU=Wazuh/CN=wazuh.manager" 2>/dev/null || true
+    printf "subjectAltName=DNS:wazuh.manager,DNS:wazuh-manager,DNS:siem,DNS:localhost,IP:127.0.0.1\n" > /tmp/_mgr.ext
+    openssl x509 -req -in /tmp/_mgr.csr -CA "$cd_certs/root-ca.pem" -CAkey "$cd_certs/root-ca.key" \
+        -CAcreateserial -days 3650 -sha256 -extfile /tmp/_mgr.ext -out "$cd_certs/wazuh.manager.pem" 2>/dev/null || true
+    cp -f "$cd_certs/root-ca.pem" "$cd_certs/root-ca-manager.pem"
+    cp -f "$cd_certs/root-ca.key" "$cd_certs/root-ca-manager.key"
+    rm -f /tmp/_mgr.csr /tmp/_mgr.ext "$cd_certs/root-ca.srl"
+    chmod 644 "$cd_certs"/*.pem 2>/dev/null || true
+    chmod 600 "$cd_certs"/*-key.pem "$cd_certs"/*.key 2>/dev/null || true
+    # 검증: manager 가 단일 root-ca 로 verify 되어야 함
+    if ! openssl verify -CAfile "$cd_certs/root-ca.pem" "$cd_certs/wazuh.manager.pem" >/dev/null 2>&1; then
+        echo "[el34] ERROR: 인증서 단일 CA 통일 실패 — wazuh.manager.pem 이 root-ca 로 verify 안 됨"; return 1
+    fi
+    echo "[el34] 인증서 준비 (단일 CA 통일, verify OK): $(ls "$cd_certs"/*.pem 2>/dev/null | wc -l) .pem"
 }
 
 # ───────────────────────────────────────────────── install (Docker + daemon.json)
