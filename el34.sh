@@ -11,6 +11,7 @@ cd "$(dirname "$(readlink -f "$0")")"
 WEB_HOST_IP="${WEB_HOST_IP:-192.168.0.161}"     # ens37 — 웹/dmz 외부 진입 (compose 와 일치)
 INT_HOST_IP="${INT_HOST_IP:-192.168.136.145}"   # ens38 — 내부전용 GUI/SIEM 바인딩
 SUDO=""; [ "$(id -u)" = 0 ] || SUDO="sudo"
+REAL_USER="${SUDO_USER:-$(id -un)}"             # sudo 로 재실행돼도 원래 사용자 (파일 소유 복원용)
 
 # ───────────────────────────────────────────────── helpers
 ensure_env() {
@@ -91,10 +92,11 @@ ensure_certs() {
         -v "$(pwd)/wazuh-config/config/certs.yml:/config/certs.yml" \
         wazuh/wazuh-certs-generator:0.0.2 2>&1 | sed 's/^/  /' || true
     # ── 권한 정규화 ── generator 가 디렉터리 0500 / 파일 0400 / UID 999 로 잠금.
-    # 재발급(write)·마운트(read) 가능하도록 소유·모드를 먼저 평탄화한다 (set -e 안전).
-    $SUDO chown -R "$(id -u):$(id -g)" wazuh-config/certs || true
-    $SUDO chmod -R u+rwX wazuh-config/certs || true
-    chmod 700 wazuh-config/certs || true
+    # 동작하는 6v6 레이아웃 = 사용자(uid 1000) 소유 + 644(world-readable). 컨테이너(wazuh uid 1000 등)
+    # 가 읽을 수 있어야 함. up 은 root 로 실행되므로 chown/chmod 가능 (REAL_USER=ccc 로 환원).
+    $SUDO chown -R "$REAL_USER:$REAL_USER" wazuh-config/certs || true
+    $SUDO chmod 755 wazuh-config/certs || true
+    $SUDO chmod -R u+rw wazuh-config/certs/* 2>/dev/null || true
     # ── 단일 CA 통일 ── generator 는 indexer/dashboard(root-ca) 와 manager(root-ca-manager) 를
     # 별도 CA 로 만든다 → filebeat(manager)↔indexer mTLS 가 서로 다른 CA 라 실패. manager 인증서를
     # root-ca 로 재발급하여 전 노드가 단일 root-ca 를 신뢰하게 통일한다 (6v6 검증 레이아웃).
@@ -107,8 +109,9 @@ ensure_certs() {
     cp -f "$cd_certs/root-ca.pem" "$cd_certs/root-ca-manager.pem"
     cp -f "$cd_certs/root-ca.key" "$cd_certs/root-ca-manager.key"
     rm -f /tmp/_mgr.csr /tmp/_mgr.ext "$cd_certs/root-ca.srl"
-    chmod 644 "$cd_certs"/*.pem 2>/dev/null || true
-    chmod 600 "$cd_certs"/*-key.pem "$cd_certs"/*.key 2>/dev/null || true
+    # 6v6 동작 모델 = 전부 644(world-readable). 컨테이너 uid 무관하게 읽힘 (lab 인증서).
+    $SUDO chmod 644 "$cd_certs"/*.pem "$cd_certs"/*-key.pem "$cd_certs"/*.key 2>/dev/null || true
+    $SUDO chown -R "$REAL_USER:$REAL_USER" "$cd_certs" 2>/dev/null || true
     # 검증: manager 가 단일 root-ca 로 verify 되어야 함
     if ! openssl verify -CAfile "$cd_certs/root-ca.pem" "$cd_certs/wazuh.manager.pem" >/dev/null 2>&1; then
         echo "[el34] ERROR: 인증서 단일 CA 통일 실패 — wazuh.manager.pem 이 root-ca 로 verify 안 됨"; return 1
@@ -157,6 +160,11 @@ OVERLAY="-f docker-compose.yaml -f docker-compose.opencti.yml -f docker-compose.
 ENVF="--env-file .env --env-file .env.opencti --env-file .env.misp"
 
 cmd_up() {
+    # up 은 root 필요(인증서 권한 정규화 + el34-net iptables/sysctl + systemd). 비-root 면 sudo 재실행.
+    if [ "$(id -u)" != 0 ]; then
+        echo "[el34] up 은 root 권한 필요 — sudo 로 재실행합니다"
+        exec sudo -E "$0" up
+    fi
     command -v docker >/dev/null || { echo "[el34] Docker 없음 — 먼저 'sudo ./el34.sh install'"; exit 1; }
     ensure_env; ensure_ssh_keys; ensure_certs; ensure_misp_env; ensure_opencti_env
     echo "[el34] === build (최초 ~수GB pull) ==="
@@ -170,6 +178,8 @@ cmd_up() {
     install_systemd
     echo "[el34] === sigma 적재 ==="
     cmd_sigma || echo "[el34] WARN: sigma 적재 실패(나중에 ./el34.sh sigma)"
+    # root 로 생성된 사용자-facing 파일을 원 사용자 소유로 환원 (이후 비-root 운영/down 가능하게)
+    chown -R "$REAL_USER:$REAL_USER" .env .env.misp .env.opencti keys 2>/dev/null || true
     echo "[el34] ✅ up 완료. 웹 진입 http://${WEB_HOST_IP}:8001.. / 내부 GUI http://${INT_HOST_IP}:{5601,8000,8081-8083,8080}"
 }
 
