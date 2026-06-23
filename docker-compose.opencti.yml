@@ -150,6 +150,9 @@ services:
       - SMTP__PORT=25
       - PROVIDERS__LOCAL__STRATEGY=LocalStrategy
       - APP__HEALTH_ACCESS_KEY=${OPENCTI_HEALTHCHECK_ACCESS_KEY}
+      # el34: 로그 폭주(디스크 full) 방지 — info 로그 축소 + 일별 파일 보존 3개로 제한
+      - APP__APP_LOGS__LOGS_LEVEL=error
+      - APP__APP_LOGS__LOGS_MAX_FILES=3
     ports:
       - "192.168.136.145:${OPENCTI_PORT}:8080"   # el34: 내부전용(호스트 Firefox), LAN 격리
     depends_on:

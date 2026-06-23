@@ -440,3 +440,7 @@ KVM 활성 불가하면 `--with-windows` 빼고 `bash 6v6.sh up` 만 — 본 스
 ## 라이선스
 
 MIT — 자유롭게 학습/수업에서 활용.
+
+## 추가 도구(배포 후)
+
+베이스 배포 후 `./el34-extra-tools.sh` 로 training 랩 의존 도구(trivy/nuclei-templates/scapy/caldera)를 멱등 설치한다. OpenCTI 로그는 docker-compose.opencti.yml에서 level=error/max_files=3로 디스크 폭주를 방지한다.
