@@ -8,7 +8,7 @@ node_modules/
 .vscode/
 docker-compose.yaml.bak-*
 
-# 학생 환경마다 다른 SSH key 자동 생성 (6v6.sh up 의 ensure_ssh_keys). public/private
+# 학생 환경마다 다른 SSH key 자동 생성 (el34.sh up 의 ensure_ssh_keys). public/private
 # 둘 다 학생 환경 전용 — public 도 다른 학생 환경에 쓰면 안 됨. keys/.gitkeep 만 push.
 keys/id_rsa
 keys/id_rsa.pub
@@ -28,5 +28,12 @@ win-shared/
 wazuh-config/certs/*.pem
 wazuh-config/certs/*.key
 
-# el34 deploy-time
+# el34 deploy-time 생성물 (절대 push 금지 — ssl/key.pem 사설키 포함)
 .env.opencti
+ssl/
+sigma/sigma_rules.xml
+# OpenCTI/MISP 컨테이너가 레포 경로에 만드는 런타임 데이터
+configs/
+files/
+logs/
+gnupg/

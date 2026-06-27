@@ -1,0 +1,16 @@
+# el34 호스트 IP alias — compose 포트 바인딩(.161 웹외부 / .145 내부GUI)이 가능하도록
+# docker 기동 *전에* 호스트 IP 를 보장한다 (단일 NIC 호스트 자가치유; 실 NIC 면 멱등 skip).
+# 설치: sudo cp el34-hostip.service /etc/systemd/system/ && sudo systemctl enable el34-hostip
+[Unit]
+Description=el34 host IP aliases for compose port binding (.161 web / .145 int-GUI)
+Wants=network-online.target
+After=network-online.target
+Before=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/home/ccc/el34/el34-hostip.sh
+
+[Install]
+WantedBy=multi-user.target

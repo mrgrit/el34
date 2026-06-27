@@ -92,14 +92,14 @@ ensure_certs() {
         -v "$(pwd)/wazuh-config/config/certs.yml:/config/certs.yml" \
         wazuh/wazuh-certs-generator:0.0.2 2>&1 | sed 's/^/  /' || true
     # ── 권한 정규화 ── generator 가 디렉터리 0500 / 파일 0400 / UID 999 로 잠금.
-    # 동작하는 6v6 레이아웃 = 사용자(uid 1000) 소유 + 644(world-readable). 컨테이너(wazuh uid 1000 등)
+    # 동작하는 el34 레이아웃 = 사용자(uid 1000) 소유 + 644(world-readable). 컨테이너(wazuh uid 1000 등)
     # 가 읽을 수 있어야 함. up 은 root 로 실행되므로 chown/chmod 가능 (REAL_USER=ccc 로 환원).
     $SUDO chown -R "$REAL_USER:$REAL_USER" wazuh-config/certs || true
     $SUDO chmod 755 wazuh-config/certs || true
     $SUDO chmod -R u+rw wazuh-config/certs/* 2>/dev/null || true
     # ── 단일 CA 통일 ── generator 는 indexer/dashboard(root-ca) 와 manager(root-ca-manager) 를
     # 별도 CA 로 만든다 → filebeat(manager)↔indexer mTLS 가 서로 다른 CA 라 실패. manager 인증서를
-    # root-ca 로 재발급하여 전 노드가 단일 root-ca 를 신뢰하게 통일한다 (6v6 검증 레이아웃).
+    # root-ca 로 재발급하여 전 노드가 단일 root-ca 를 신뢰하게 통일한다 (el34 검증 레이아웃).
     local cd_certs="wazuh-config/certs"
     openssl req -new -key "$cd_certs/wazuh.manager-key.pem" -out /tmp/_mgr.csr \
         -subj "/C=US/L=California/O=Wazuh/OU=Wazuh/CN=wazuh.manager" 2>/dev/null || true
@@ -109,7 +109,7 @@ ensure_certs() {
     cp -f "$cd_certs/root-ca.pem" "$cd_certs/root-ca-manager.pem"
     cp -f "$cd_certs/root-ca.key" "$cd_certs/root-ca-manager.key"
     rm -f /tmp/_mgr.csr /tmp/_mgr.ext "$cd_certs/root-ca.srl"
-    # 6v6 동작 모델 = 전부 644(world-readable). 컨테이너 uid 무관하게 읽힘 (lab 인증서).
+    # el34 동작 모델 = 전부 644(world-readable). 컨테이너 uid 무관하게 읽힘 (lab 인증서).
     $SUDO chmod 644 "$cd_certs"/*.pem "$cd_certs"/*-key.pem "$cd_certs"/*.key 2>/dev/null || true
     $SUDO chown -R "$REAL_USER:$REAL_USER" "$cd_certs" 2>/dev/null || true
     # 검증: manager 가 단일 root-ca 로 verify 되어야 함
@@ -146,10 +146,13 @@ cmd_install() {
 cmd_net() { exec ./el34-net.sh; }
 
 install_systemd() {
+    # 호스트 IP alias 를 docker 기동 전에 보장 (재부팅 후 compose 바인딩 가능)
+    $SUDO cp el34-hostip.service /etc/systemd/system/el34-hostip.service
     $SUDO cp el34-net.service /etc/systemd/system/el34-net.service
     $SUDO systemctl daemon-reload
+    $SUDO systemctl enable el34-hostip >/dev/null 2>&1 || true
     $SUDO systemctl enable --now el34-net >/dev/null 2>&1 || true
-    echo "[el34] el34-net.service 설치·활성 (재부팅 후 체인 자동 보존)"
+    echo "[el34] el34-hostip/el34-net.service 설치·활성 (재부팅 후 IP alias + 체인 자동 보존)"
 }
 
 # ───────────────────────────────────────────────── sigma
@@ -167,6 +170,9 @@ cmd_up() {
     fi
     command -v docker >/dev/null || { echo "[el34] Docker 없음 — 먼저 'sudo ./el34.sh install'"; exit 1; }
     ensure_env; ensure_ssh_keys; ensure_certs; ensure_misp_env; ensure_opencti_env
+    # compose 가 바인딩하는 호스트 IP(.161 웹외부/.145 내부GUI) 보장 — 없으면 core up 이
+    # "cannot assign requested address" 로 실패. 실 NIC(ens37/ens38)면 멱등 skip.
+    WEB_HOST_IP="$WEB_HOST_IP" INT_HOST_IP="$INT_HOST_IP" ./el34-hostip.sh
     echo "[el34] === build (최초 ~수GB pull) ==="
     docker compose build
     echo "[el34] === core up ==="

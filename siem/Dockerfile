@@ -31,7 +31,7 @@ COPY siem/bastion-audit-rules.xml /opt/bastion-audit-rules.xml
 COPY siem/96-bastion-audit-rules.sh /etc/cont-init.d/96-bastion-audit-rules
 # (el34: HAProxy 제거됨 → haproxy-denat decoder/rules 폐기. 출처 IP 는 fw/ips 라우팅으로 native 보존.)
 
-# cont-init: 6v6 명령 로깅(cmdlog) decoder + rules — Assessor 의 command_ran 질의 지원
+# cont-init: el34 명령 로깅(cmdlog) decoder + rules — Assessor 의 command_ran 질의 지원
 COPY siem/cmdlog-decoder.xml /opt/cmdlog-decoder.xml
 COPY siem/cmdlog-rules.xml /opt/cmdlog-rules.xml
 COPY siem/94-cmdlog-rules.sh /etc/cont-init.d/94-cmdlog-rules
@@ -39,5 +39,8 @@ RUN chmod +x /etc/cont-init.d/94-cmdlog-rules
 # cont-init: Wazuh API rate limit 5000/min (default 300 부족 → No API available)
 COPY siem/95-api-rate-limit.sh /etc/cont-init.d/95-api-rate-limit
 RUN chmod +x /etc/cont-init.d/96-bastion-audit-rules /etc/cont-init.d/95-api-rate-limit
+# cont-init: authd force re-enroll (동일 이름 즉시 교체 — down/up 재배포 시 Duplicate name 거부 방지)
+COPY siem/93-auth-force.sh /etc/cont-init.d/93-auth-force
+RUN chmod +x /etc/cont-init.d/93-auth-force
 
 EXPOSE 22 514/udp 8002
