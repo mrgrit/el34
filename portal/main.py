@@ -1,4 +1,4 @@
-"""6v6 Portal — 학습용 관리 대시보드.
+"""el34 Portal — 학습용 관리 대시보드.
 
 FastAPI + Jinja2 + HTMX. docker socket / suricata eve.json / apache modsec_audit.log /
 bastion auth.log / siem alerts.json 을 통합해서 한 화면에서 보여준다.
@@ -23,16 +23,16 @@ from fastapi.templating import Jinja2Templates
 BASE = Path(__file__).parent
 templates = Jinja2Templates(directory=str(BASE / "templates"))
 
-app = FastAPI(title="6v6 Portal", docs_url="/api/docs", redoc_url=None)
+app = FastAPI(title="el34 Portal", docs_url="/api/docs", redoc_url=None)
 
 EXPECTED_CONTAINERS = [
-    ("6v6-bastion",   "10.20.30.201", "Bastion (SSH 점프 + API)"),
-    ("6v6-secu",      "10.20.30.1",   "Firewall + IDS"),
-    ("6v6-web",       "10.20.30.80",  "Web (Apache + ModSec)"),
-    ("6v6-juiceshop", "10.20.30.81",  "JuiceShop (web 만)"),
-    ("6v6-siem",      "10.20.30.100", "SIEM (Wazuh)"),
-    ("6v6-attacker",  "10.20.30.202", "Attacker (도구)"),
-    ("6v6-portal",    "10.20.30.50",  "이 포털"),
+    ("el34-bastion",   "10.20.30.201", "Bastion (SSH 점프 + API)"),
+    ("el34-secu",      "10.20.30.1",   "Firewall + IDS"),
+    ("el34-web",       "10.20.30.80",  "Web (Apache + ModSec)"),
+    ("el34-juiceshop", "10.20.30.81",  "JuiceShop (web 만)"),
+    ("el34-siem",      "10.20.30.100", "SIEM (Wazuh)"),
+    ("el34-attacker",  "10.20.30.202", "Attacker (도구)"),
+    ("el34-portal",    "10.20.30.50",  "이 포털"),
 ]
 
 
@@ -271,7 +271,7 @@ def audit(request: Request) -> HTMLResponse:
     if not auth_lines:
         try:
             cli = docker_client()
-            auth_lines = cli.containers.get("6v6-bastion").logs(tail=200).decode().splitlines()
+            auth_lines = cli.containers.get("el34-bastion").logs(tail=200).decode().splitlines()
         except Exception:
             auth_lines = []
     rows = [l for l in auth_lines if any(k in l for k in ("Accepted", "Failed", "session", "Connection"))][-50:][::-1]
@@ -314,5 +314,5 @@ def portal_health() -> JSONResponse:
     return JSONResponse({
         "status": "ok",
         "time": datetime.utcnow().isoformat() + "Z",
-        "service": "6v6-portal",
+        "service": "el34-portal",
     })

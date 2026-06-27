@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """suricata_edu_gui — IPS(Suricata) 교육용 GUI 백엔드.
 
-6v6 secuops-easy 특강용. 6v6-ips 컨테이너 안에서 root 로 실행되며, 학생이 웹 UI 에서
+el34 secuops-easy 특강용. el34-ips 컨테이너 안에서 root 로 실행되며, 학생이 웹 UI 에서
 탐지룰을 구성하면 그것이 만들어내는 **실제 Suricata rule 한 줄** 을 미리보기로 보여준 뒤
 local.rules 에 적용하고 `suricatasc -c reload-rules` 로 라이브 반영한다. 의존성 0.
 
@@ -145,7 +145,7 @@ def build_rule(p):
     if action not in ("alert", "drop", "pass", "reject"):
         raise ValueError("action 은 alert/drop/pass/reject")
     proto = _tok(p.get("proto", "http"))
-    # 6v6 는 폐쇄망 — 공격자(10.20.30.202)도 HOME_NET 안이라 EXTERNAL_NET 매칭이 안 된다.
+    # el34 는 폐쇄망 — 공격자(10.20.30.202)도 HOME_NET 안이라 EXTERNAL_NET 매칭이 안 된다.
     # 따라서 기본 src/dst 는 any (실전 관례인 $EXTERNAL_NET→$HOME_NET 는 강의에서 별도 설명).
     src = _net(p.get("src") or "any")
     sport = _tok(p.get("sport") or "any")

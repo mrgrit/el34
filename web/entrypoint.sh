@@ -40,7 +40,7 @@ if [ ! -f /etc/apache2/ssl/server.crt ]; then
         -newkey rsa:2048 \
         -keyout /etc/apache2/ssl/server.key \
         -out    /etc/apache2/ssl/server.crt \
-        -subj "/CN=*.6v6.lab/O=6v6/C=KR" 2>/dev/null
+        -subj "/CN=*.el34.lab/O=el34/C=KR" 2>/dev/null
     chmod 600 /etc/apache2/ssl/server.key
 fi
 
@@ -56,9 +56,9 @@ if [ -d /var/ossec ]; then
   <localfile>\n    <log_format>apache</log_format>\n    <location>/var/log/apache2/access.log</location>\n  </localfile>\n  <localfile>\n    <log_format>apache</log_format>\n    <location>/var/log/apache2/error.log</location>\n  </localfile>\n  <localfile>\n    <log_format>json</log_format>\n    <location>/var/log/apache2/modsec_audit.log</location>\n  </localfile>' /var/ossec/etc/ossec.conf
     fi
 
-    # 6v6-assessor: FIM(syscheck) + 명령 로깅 localfile 주입 (정적·cohort-free, 멱등).
-    # wazuh-agent.conf.append 의 '6v6-assessor-collection' 블록을 </ossec_config> 앞에 1회 삽입.
-    if [ -f /tmp/wazuh-agent.conf.append ] && ! grep -q '6v6-assessor-collection' /var/ossec/etc/ossec.conf; then
+    # el34-assessor: FIM(syscheck) + 명령 로깅 localfile 주입 (정적·cohort-free, 멱등).
+    # wazuh-agent.conf.append 의 'el34-assessor-collection' 블록을 </ossec_config> 앞에 1회 삽입.
+    if [ -f /tmp/wazuh-agent.conf.append ] && ! grep -q 'el34-assessor-collection' /var/ossec/etc/ossec.conf; then
         __awktmp=$(mktemp)
         awk 'NR==FNR{ins=ins $0 ORS; next} /<\/ossec_config>/ && !d{printf "%s",ins; d=1} {print}' \
             /tmp/wazuh-agent.conf.append /var/ossec/etc/ossec.conf > "$__awktmp" && \
@@ -83,24 +83,24 @@ if [ -d /var/ossec ]; then
         echo "[web] WARN: wazuh-control start failed"
 fi
 
-# ── 6v6 명령 로깅(채점/감사용, cohort-free 정적) ──────────────────────────
-# 대화형 셸 명령을 /var/log/6v6-cmd.log(Wazuh agent localfile) + local6(rsyslog 보유 시) 로 기록.
-: > /var/log/6v6-cmd.log 2>/dev/null || true
-chmod 0666 /var/log/6v6-cmd.log 2>/dev/null || true
-cat > /etc/profile.d/6v6-cmdlog.sh <<'CMDLOG'
-# 6v6: 대화형 셸 명령 로깅(채점/감사). CC/tubewar 가 Assessor command_ran 으로 질의.
+# ── el34 명령 로깅(채점/감사용, cohort-free 정적) ──────────────────────────
+# 대화형 셸 명령을 /var/log/el34-cmd.log(Wazuh agent localfile) + local6(rsyslog 보유 시) 로 기록.
+: > /var/log/el34-cmd.log 2>/dev/null || true
+chmod 0666 /var/log/el34-cmd.log 2>/dev/null || true
+cat > /etc/profile.d/el34-cmdlog.sh <<'CMDLOG'
+# el34: 대화형 셸 명령 로깅(채점/감사). CC/tubewar 가 Assessor command_ran 으로 질의.
 case "$-" in *i*) ;; *) return 2>/dev/null ;; esac
-__6v6_cmdlog() {
+__el34_cmdlog() {
   local rc=$? last
   last=$(history 1 2>/dev/null | sed 's/^ *[0-9]* *//')
   [ -z "$last" ] && return
-  local msg="CMD6V6 host=$(hostname) user=${USER:-?} pwd=$PWD rc=$rc cmd=$last"
-  logger -p local6.info -t 6v6audit "$msg" 2>/dev/null
-  printf '%s %s 6v6audit: %s\n' "$(date '+%b %e %H:%M:%S')" "$(hostname)" "$msg" >> /var/log/6v6-cmd.log 2>/dev/null
+  local msg="CMDEL34 host=$(hostname) user=${USER:-?} pwd=$PWD rc=$rc cmd=$last"
+  logger -p local6.info -t el34audit "$msg" 2>/dev/null
+  printf '%s %s el34audit: %s\n' "$(date '+%b %e %H:%M:%S')" "$(hostname)" "$msg" >> /var/log/el34-cmd.log 2>/dev/null
 }
 case ";${PROMPT_COMMAND};" in
-  *__6v6_cmdlog*) ;;
-  *) PROMPT_COMMAND="__6v6_cmdlog;${PROMPT_COMMAND}" ;;
+  *__el34_cmdlog*) ;;
+  *) PROMPT_COMMAND="__el34_cmdlog;${PROMPT_COMMAND}" ;;
 esac
 CMDLOG
 
@@ -110,7 +110,7 @@ apache2ctl -D FOREGROUND &
 
 # ─── secuops-easy 교육용 GUI: WAF 콘솔 (이미지 내장 → 자동 기동) ──────────────
 # 휘발성 docker-exec 주입 대신 entrypoint 에서 영구 기동. down/up·재부팅 후에도
-# waf-gui.6v6.lab 가 네트워크/exec 없이 즉시 열린다(HAProxy 라우트는 base config 내장).
+# waf-gui.el34.lab 가 네트워크/exec 없이 즉시 열린다(HAProxy 라우트는 base config 내장).
 if [ -f /opt/modsec_edu_gui/server.py ] && ! pgrep -f /opt/modsec_edu_gui/server.py >/dev/null 2>&1; then
     echo "[web] starting modsec_edu_gui (WAF 콘솔) on :8080"
     python3 /opt/modsec_edu_gui/server.py 8080 >/var/log/modsec_edu_gui.log 2>&1 &

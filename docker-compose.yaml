@@ -4,7 +4,7 @@ name: el34
 # el34 — 3-tier chained topology: ext -> pipe -> dmz (+ int backend)
 # Enforced packet flow:  attacker(.202) -> fw -> ips -> waf(web/ModSec) -> app
 #
-# 출처 IP 보존 설계 (6v6 의 NAT 출처추적 결함 제거):
+# 출처 IP 보존 설계 (NAT 출처추적 결함 제거):
 #   - HAProxy 제거: fw 는 L3 포트분기 DNAT 만 (L7 종료 안 함)
 #   - ips masquerade 제거: 데이터경로 출처 IP 가 web/ModSec 까지 그대로 도달
 #   - daemon.json userland-proxy=false: 호스트 .161 publish DNAT 가 출처 보존
@@ -45,14 +45,14 @@ services:
       LLM_SUBAGENT_MODEL: ${LLM_SUBAGENT_MODEL}
       DEFAULT_GW: 10.20.30.1
     extra_hosts:
-      - "juice.6v6.lab:10.20.30.1"
-      - "dvwa.6v6.lab:10.20.30.1"
-      - "neobank.6v6.lab:10.20.30.1"
-      - "govportal.6v6.lab:10.20.30.1"
-      - "mediforum.6v6.lab:10.20.30.1"
-      - "adminconsole.6v6.lab:10.20.30.1"
-      - "aicompanion.6v6.lab:10.20.30.1"
-      - "siem.6v6.lab:10.20.30.1"
+      - "juice.el34.lab:10.20.30.1"
+      - "dvwa.el34.lab:10.20.30.1"
+      - "neobank.el34.lab:10.20.30.1"
+      - "govportal.el34.lab:10.20.30.1"
+      - "mediforum.el34.lab:10.20.30.1"
+      - "adminconsole.el34.lab:10.20.30.1"
+      - "aicompanion.el34.lab:10.20.30.1"
+      - "siem.el34.lab:10.20.30.1"
     volumes:
       - bastion-data:/var/lib/bastion
       - bastion-ssh-host:/var/lib/bastion/ssh-host-keys
@@ -78,14 +78,14 @@ services:
       SSH_PASS: ${SSH_PASS:-ccc}
       DEFAULT_GW: 10.20.30.1
     extra_hosts:
-      - "juice.6v6.lab:10.20.30.1"
-      - "dvwa.6v6.lab:10.20.30.1"
-      - "neobank.6v6.lab:10.20.30.1"
-      - "govportal.6v6.lab:10.20.30.1"
-      - "mediforum.6v6.lab:10.20.30.1"
-      - "adminconsole.6v6.lab:10.20.30.1"
-      - "aicompanion.6v6.lab:10.20.30.1"
-      - "siem.6v6.lab:10.20.30.1"
+      - "juice.el34.lab:10.20.30.1"
+      - "dvwa.el34.lab:10.20.30.1"
+      - "neobank.el34.lab:10.20.30.1"
+      - "govportal.el34.lab:10.20.30.1"
+      - "mediforum.el34.lab:10.20.30.1"
+      - "adminconsole.el34.lab:10.20.30.1"
+      - "aicompanion.el34.lab:10.20.30.1"
+      - "siem.el34.lab:10.20.30.1"
     volumes:
       - attacker-home:/home/ccc
       - attacker-ssh-host:/var/lib/ssh-host-keys
@@ -106,10 +106,10 @@ services:
     networks:
       ext:
         ipv4_address: 10.20.30.1
-        aliases: [secu, 6v6-secu]
+        aliases: [secu, el34-secu]
       pipe:
         ipv4_address: 10.20.31.1
-        aliases: [secu, 6v6-secu]
+        aliases: [secu, el34-secu]
     ports:
       - "192.168.0.161:80:80"
       - "192.168.0.161:443:443"

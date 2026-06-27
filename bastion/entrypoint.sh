@@ -48,55 +48,55 @@ fi
 mkdir -p /home/$SSH_USER/.ssh
 cat > /home/$SSH_USER/.ssh/config <<SSHCFG
 # 4-tier chained topology — direct/jump aliases
-Host 6v6-fw fw
+Host el34-fw fw
     HostName 10.20.30.1
     User $SSH_USER
     StrictHostKeyChecking no
     UserKnownHostsFile /dev/null
 
-Host 6v6-attacker attacker
+Host el34-attacker attacker
     HostName 10.20.30.202
     User $SSH_USER
     StrictHostKeyChecking no
     UserKnownHostsFile /dev/null
 
 # pipe/dmz/int reachable via fw (route forwarding is in place)
-Host 6v6-ips ips
+Host el34-ips ips
     HostName 10.20.31.2
     User $SSH_USER
     StrictHostKeyChecking no
     UserKnownHostsFile /dev/null
-    ProxyJump 6v6-fw
+    ProxyJump el34-fw
 
-Host 6v6-web web
+Host el34-web web
     HostName 10.20.32.80
     User $SSH_USER
     StrictHostKeyChecking no
     UserKnownHostsFile /dev/null
-    ProxyJump 6v6-fw
+    ProxyJump el34-fw
 
-Host 6v6-portal portal
+Host el34-portal portal
     HostName 10.20.32.50
     User $SSH_USER
     StrictHostKeyChecking no
     UserKnownHostsFile /dev/null
-    ProxyJump 6v6-fw
+    ProxyJump el34-fw
 
-Host 6v6-siem siem
+Host el34-siem siem
     HostName 10.20.32.100
     User $SSH_USER
     StrictHostKeyChecking no
     UserKnownHostsFile /dev/null
-    ProxyJump 6v6-fw
+    ProxyJump el34-fw
 
 # W11 학습용 — sysmon-host (ext network, systemd 컨테이너)
-Host 6v6-sysmon-host sysmon-host
+Host el34-sysmon-host sysmon-host
     HostName 10.20.30.210
     User $SSH_USER
     StrictHostKeyChecking no
     UserKnownHostsFile /dev/null
 
-# Wazuh Dashboard (https UI, no SSH): https://siem.6v6.lab/
+# Wazuh Dashboard (https UI, no SSH): https://siem.el34.lab/
 #   admin / SecretPassword
 SSHCFG
 chmod 600 /home/$SSH_USER/.ssh/config
@@ -104,7 +104,7 @@ chown -R $SSH_USER:$SSH_USER /home/$SSH_USER/.ssh
 
 # /keys (호스트 ./keys bind mount, RO) → ccc 의 id_rsa + authorized_keys 배포. bastion
 # 은 양쪽 모두 보유 (id_rsa = ProxyJump client key, authorized_keys = bastion 자체 로그인).
-# 학생 신규 배포 시 6v6.sh 가 ssh-keygen 자동 생성하여 /keys 채움.
+# 학생 신규 배포 시 el34.sh 가 ssh-keygen 자동 생성하여 /keys 채움.
 if [ -f /keys/id_rsa ] && [ -f /keys/id_rsa.pub ]; then
     cp /keys/id_rsa     /home/$SSH_USER/.ssh/id_rsa
     cp /keys/id_rsa.pub /home/$SSH_USER/.ssh/id_rsa.pub
@@ -112,17 +112,17 @@ if [ -f /keys/id_rsa ] && [ -f /keys/id_rsa.pub ]; then
     chown -R $SSH_USER:$SSH_USER /home/$SSH_USER/.ssh
     chmod 600 /home/$SSH_USER/.ssh/id_rsa /home/$SSH_USER/.ssh/authorized_keys
     chmod 644 /home/$SSH_USER/.ssh/id_rsa.pub
-    echo "[bastion] SSH key deployed (id_rsa + authorized_keys) — password-less ssh 6v6-fw 가능"
+    echo "[bastion] SSH key deployed (id_rsa + authorized_keys) — password-less ssh el34-fw 가능"
 else
-    echo "[bastion] WARN: /keys/id_rsa 없음 — 6v6.sh up 의 ensure_ssh_keys 실행 안 됨? password ssh 로 fallback."
+    echo "[bastion] WARN: /keys/id_rsa 없음 — el34.sh up 의 ensure_ssh_keys 실행 안 됨? password ssh 로 fallback."
 fi
 
 cat > /etc/motd <<MOTD
 ========================================================
-  6v6 Bastion - single entry point for the lab
+  el34 Bastion - single entry point for the lab
 ========================================================
 ProxyJump aliases: ssh secu | ssh web | ssh attacker
-SIEM via ssh 6v6-siem (ProxyJump fw) or Wazuh dashboard https://siem.6v6.lab/
+SIEM via ssh el34-siem (ProxyJump fw) or Wazuh dashboard https://siem.el34.lab/
 API: http://localhost:9100/health
 ========================================================
 MOTD
@@ -130,7 +130,7 @@ MOTD
 # rsyslog forward (syslog paradigm) - bastion auth/system -> siem:514/udp
 echo "[bastion] configuring rsyslog forward -> $SIEM_HOST:514/udp"
 cat > /etc/rsyslog.d/50-forward-siem.conf <<RSYSLOG
-# 6v6: bastion -> siem syslog forward (syslog paradigm vs Wazuh agent)
+# el34: bastion -> siem syslog forward (syslog paradigm vs Wazuh agent)
 *.*  @${SIEM_HOST}:514
 RSYSLOG
 
@@ -193,27 +193,27 @@ sed -i '/^HostKey \/var\/lib\/bastion/d' /etc/ssh/sshd_config
     done
 } >> /etc/ssh/sshd_config
 
-# ── 6v6 명령 로깅(채점/감사용, cohort-free 정적) ──────────────────────────
+# ── el34 명령 로깅(채점/감사용, cohort-free 정적) ──────────────────────────
 # Bastion 의 두뇌(KG/Manager/SubAgent)·API(/health /exec /chat)·ProxyJump 와 무관한
 # 셸 profile.d 드롭인일 뿐 — 기존 역할 무변경. local6 는 기존 rsyslog(*.* @siem:514) 경유.
 # 컨테이너에서 rsyslog 데몬이 안 떠 있는 경우가 있어 미기동 시 직접 보장(전송 경로 확보).
 pgrep -x rsyslogd >/dev/null 2>&1 || rsyslogd 2>/dev/null || true
-: > /var/log/6v6-cmd.log 2>/dev/null || true
-chmod 0666 /var/log/6v6-cmd.log 2>/dev/null || true
-cat > /etc/profile.d/6v6-cmdlog.sh <<'CMDLOG'
-# 6v6: 대화형 셸 명령 로깅(채점/감사). CC/tubewar 가 Assessor command_ran 으로 질의.
+: > /var/log/el34-cmd.log 2>/dev/null || true
+chmod 0666 /var/log/el34-cmd.log 2>/dev/null || true
+cat > /etc/profile.d/el34-cmdlog.sh <<'CMDLOG'
+# el34: 대화형 셸 명령 로깅(채점/감사). CC/tubewar 가 Assessor command_ran 으로 질의.
 case "$-" in *i*) ;; *) return 2>/dev/null ;; esac
-__6v6_cmdlog() {
+__el34_cmdlog() {
   local rc=$? last
   last=$(history 1 2>/dev/null | sed 's/^ *[0-9]* *//')
   [ -z "$last" ] && return
-  local msg="CMD6V6 host=$(hostname) user=${USER:-?} pwd=$PWD rc=$rc cmd=$last"
-  logger -p local6.info -t 6v6audit "$msg" 2>/dev/null
-  printf '%s %s 6v6audit: %s\n' "$(date '+%b %e %H:%M:%S')" "$(hostname)" "$msg" >> /var/log/6v6-cmd.log 2>/dev/null
+  local msg="CMDEL34 host=$(hostname) user=${USER:-?} pwd=$PWD rc=$rc cmd=$last"
+  logger -p local6.info -t el34audit "$msg" 2>/dev/null
+  printf '%s %s el34audit: %s\n' "$(date '+%b %e %H:%M:%S')" "$(hostname)" "$msg" >> /var/log/el34-cmd.log 2>/dev/null
 }
 case ";${PROMPT_COMMAND};" in
-  *__6v6_cmdlog*) ;;
-  *) PROMPT_COMMAND="__6v6_cmdlog;${PROMPT_COMMAND}" ;;
+  *__el34_cmdlog*) ;;
+  *) PROMPT_COMMAND="__el34_cmdlog;${PROMPT_COMMAND}" ;;
 esac
 CMDLOG
 

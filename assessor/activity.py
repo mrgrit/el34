@@ -4,7 +4,7 @@ check-spec(/assess)가 채점용 pass/fail 이라면, 여기는 **진도·병목
 스트림**이다. 신호원은 전부 그 VM 의 로컬 Wazuh(alerts.json + docker.sock 프로브).
 
 ★ 여기선 raw 활동만 반환한다. 진도/병목 판정·Cohort/과목/학년 태깅은 전적으로
-  서버(tubewar) 책임 — 6v6 클라이언트는 자기가 어떤 수업인지 모른다.
+  서버(tubewar) 책임 — el34 클라이언트는 자기가 어떤 수업인지 모른다.
 
 stdlib 만 사용(단위 테스트 친화). executor/alert_source 는 주입.
 """

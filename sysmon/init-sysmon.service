@@ -1,5 +1,5 @@
 [Unit]
-Description=6v6 sysmon-host init — sysmon -i + SSH key + sshd
+Description=el34 sysmon-host init — sysmon -i + SSH key + sshd
 After=network-online.target
 
 [Service]

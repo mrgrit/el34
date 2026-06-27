@@ -1,6 +1,6 @@
-"""6v6 (옵션) provisioner — 순수 로직(템플릿/검증/파싱) 단위 테스트.
+"""el34 (옵션) provisioner — 순수 로직(템플릿/검증/파싱) 단위 테스트.
 
-write/reload 는 docker+wazuh 통합이라 라이브로 검증(6v6.sh 사이클). 여기선 보안 핵심인
+write/reload 는 docker+wazuh 통합이라 라이브로 검증(el34.sh 사이클). 여기선 보안 핵심인
 파라미터 화이트리스트 + 템플릿 렌더링 + sid 범위 + 파일 파싱만 stdlib 로 검증.
 
 실행:  python3 -m unittest assessor.tests.test_provisioner -v
@@ -37,7 +37,7 @@ class TemplateTest(unittest.TestCase):
         rules = {110001: '  <rule id="110001"></rule>\n', 110000: '  <rule id="110000"></rule>\n'}
         body = P._wrap(rules)
         self.assertLess(body.index("110000"), body.index("110001"))   # sid 정렬
-        self.assertIn('<group name="6v6,provisioned,">', body)
+        self.assertIn('<group name="el34,provisioned,">', body)
 
 
 class ValidationTest(unittest.TestCase):
@@ -59,7 +59,7 @@ class SidTest(unittest.TestCase):
     def test_sid_range_constants(self):
         self.assertEqual(P.SID_BASE, 110000)        # 6자리(≤999999) — Wazuh rule id 제약
         self.assertLessEqual(P.SID_MAX, 999999)
-        self.assertTrue(P.RULES_FILE.endswith("zz-6v6-provisioned-rules.xml"))  # 마지막 로드
+        self.assertTrue(P.RULES_FILE.endswith("zz-el34-provisioned-rules.xml"))  # 마지막 로드
 
 
 if __name__ == "__main__":

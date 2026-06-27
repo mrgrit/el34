@@ -5,7 +5,7 @@
   "scenarios": [
     {"id":"ips-s01","title":"SQL Injection — UNION SELECT","level":"입문","group":"웹",
      "situation":"웹 로그에 ?id=1 UNION SELECT username,password FROM users 같은 요청이 보인다. UNION 기반 SQL Injection 시도다.",
-     "attack":"공격자:  curl -H 'Host: juice.6v6.lab' 'http://10.20.30.1/rest/products?q=1%20UNION%20SELECT%201,2,3'",
+     "attack":"공격자:  curl -H 'Host: juice.el34.lab' 'http://10.20.30.1/rest/products?q=1%20UNION%20SELECT%201,2,3'",
      "task":"HTTP URI 에 'UNION' 이 포함되면 alert 하는 룰을 만든다.",
      "build":"action=alert · proto=http · 버퍼=http.uri · content=UNION · nocase 체크 · flow=to_server",
      "hint":"http.uri 는 '요청 URL' 버퍼다. content 는 그 안에서 찾을 문자열. SQL 키워드는 대소문자 섞일 수 있으니 nocase 필수.",

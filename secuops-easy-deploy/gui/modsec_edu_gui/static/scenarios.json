@@ -5,7 +5,7 @@
   "scenarios": [
     {"id":"waf-s01","title":"SQLi — UNION SELECT","level":"입문","group":"주입",
      "situation":"?q=1 UNION SELECT user,pass FROM users 형태의 UNION 기반 SQL Injection 이 들어온다.",
-     "attack":"공격자:  curl -H 'Host: dvwa.6v6.lab' 'http://10.20.30.1/?q=1 UNION SELECT 1,2'",
+     "attack":"공격자:  curl -H 'Host: dvwa.el34.lab' 'http://10.20.30.1/?q=1 UNION SELECT 1,2'",
      "task":"REQUEST_URI 에 union…select 패턴이 보이면 차단(deny 403).",
      "build":"변수=REQUEST_URI · 연산자=@rx · 패턴=union.+select · transform=lowercase · action=deny · phase=2",
      "hint":"@rx 는 정규식. t:lowercase 로 대소문자 우회(UnIoN)를 무력화. SQL 키워드 사이 공백은 .+ 로.",

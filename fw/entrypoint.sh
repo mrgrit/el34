@@ -57,11 +57,11 @@ if [ -d /var/ossec ]; then
   <localfile>\n    <log_format>syslog</log_format>\n    <location>/var/log/syslog</location>\n  </localfile>' /var/ossec/etc/ossec.conf
     fi
 
-    # 6v6-assessor: FIM(nftables/haproxy/실습 디렉터리) + 명령 로깅 localfile (정적·cohort-free, 멱등)
-    if ! grep -q '6v6-assessor-collection' /var/ossec/etc/ossec.conf; then
+    # el34-assessor: FIM(nftables/haproxy/실습 디렉터리) + 명령 로깅 localfile (정적·cohort-free, 멱등)
+    if ! grep -q 'el34-assessor-collection' /var/ossec/etc/ossec.conf; then
         __fimblk=$(mktemp)
         cat > "$__fimblk" <<'FIMBLK'
-  <!-- 6v6-assessor-collection: FIM + cmdlog localfile (정적·cohort-free) -->
+  <!-- el34-assessor-collection: FIM + cmdlog localfile (정적·cohort-free) -->
   <syscheck>
     <disabled>no</disabled>
     <frequency>300</frequency>
@@ -72,7 +72,7 @@ if [ -d /var/ossec ]; then
   </syscheck>
   <localfile>
     <log_format>syslog</log_format>
-    <location>/var/log/6v6-cmd.log</location>
+    <location>/var/log/el34-cmd.log</location>
   </localfile>
 FIMBLK
         __awktmp=$(mktemp)
@@ -96,29 +96,29 @@ FIMBLK
     /var/ossec/bin/wazuh-control start 2>&1 | sed 's/^/  /' || true
 fi
 
-# ── 6v6 명령 로깅(채점/감사용, cohort-free 정적) ──────────────────────────
-: > /var/log/6v6-cmd.log 2>/dev/null || true
-chmod 0666 /var/log/6v6-cmd.log 2>/dev/null || true
-cat > /etc/profile.d/6v6-cmdlog.sh <<'CMDLOG'
-# 6v6: 대화형 셸 명령 로깅(채점/감사). CC/tubewar 가 Assessor command_ran 으로 질의.
+# ── el34 명령 로깅(채점/감사용, cohort-free 정적) ──────────────────────────
+: > /var/log/el34-cmd.log 2>/dev/null || true
+chmod 0666 /var/log/el34-cmd.log 2>/dev/null || true
+cat > /etc/profile.d/el34-cmdlog.sh <<'CMDLOG'
+# el34: 대화형 셸 명령 로깅(채점/감사). CC/tubewar 가 Assessor command_ran 으로 질의.
 case "$-" in *i*) ;; *) return 2>/dev/null ;; esac
-__6v6_cmdlog() {
+__el34_cmdlog() {
   local rc=$? last
   last=$(history 1 2>/dev/null | sed 's/^ *[0-9]* *//')
   [ -z "$last" ] && return
-  local msg="CMD6V6 host=$(hostname) user=${USER:-?} pwd=$PWD rc=$rc cmd=$last"
-  logger -p local6.info -t 6v6audit "$msg" 2>/dev/null
-  printf '%s %s 6v6audit: %s\n' "$(date '+%b %e %H:%M:%S')" "$(hostname)" "$msg" >> /var/log/6v6-cmd.log 2>/dev/null
+  local msg="CMDEL34 host=$(hostname) user=${USER:-?} pwd=$PWD rc=$rc cmd=$last"
+  logger -p local6.info -t el34audit "$msg" 2>/dev/null
+  printf '%s %s el34audit: %s\n' "$(date '+%b %e %H:%M:%S')" "$(hostname)" "$msg" >> /var/log/el34-cmd.log 2>/dev/null
 }
 case ";${PROMPT_COMMAND};" in
-  *__6v6_cmdlog*) ;;
-  *) PROMPT_COMMAND="__6v6_cmdlog;${PROMPT_COMMAND}" ;;
+  *__el34_cmdlog*) ;;
+  *) PROMPT_COMMAND="__el34_cmdlog;${PROMPT_COMMAND}" ;;
 esac
 CMDLOG
 
 # ─── secuops-easy 교육용 GUI: 방화벽 콘솔 (이미지 내장 → 자동 기동) ──────────
 # 휘발성 docker-exec 주입 대신 entrypoint 에서 영구 기동. down/up·재부팅 후에도
-# fw-gui.6v6.lab 가 네트워크/exec 없이 즉시 열린다(HAProxy 라우트는 base config 내장).
+# fw-gui.el34.lab 가 네트워크/exec 없이 즉시 열린다(HAProxy 라우트는 base config 내장).
 if [ -f /opt/nft_edu_gui/server.py ] && ! pgrep -f /opt/nft_edu_gui/server.py >/dev/null 2>&1; then
     echo "[fw] starting nft_edu_gui (방화벽 콘솔) on :8080"
     python3 /opt/nft_edu_gui/server.py 8080 >/var/log/nft_edu_gui.log 2>&1 &

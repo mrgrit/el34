@@ -1,14 +1,14 @@
 # modsec_edu_gui — WAF(ModSecurity) 교육용 GUI
 
 보안시스템을 처음 다루는 학생이 **WAF(ModSecurity)** 의 SecRule 작성을 장비형 웹 콘솔로 배우는
-교육용 도구다. 6v6 secuops-easy 특강(W5 WAF 기초, W6 WAF 시나리오)에서 사용한다.
+교육용 도구다. el34 secuops-easy 특강(W5 WAF 기초, W6 WAF 시나리오)에서 사용한다.
 
 핵심 철학: 학생이 폼에서 탐지 조건을 구성하면 → **실제 SecRule 한 줄로 변환**해 미리보기 →
 `/etc/modsecurity/edu_rules.conf` 에 적용 → `apache2ctl configtest` 통과 시에만 graceful reload.
 **잘못된 룰은 configtest 에서 걸러져 Apache 를 죽이지 않는다**(실패 시 직전 상태 자동 복원).
 
 ## 특징
-- **의존성 0** — Python 3 표준 라이브러리만. 6v6-web 컨테이너 안에서 root 로 실행.
+- **의존성 0** — Python 3 표준 라이브러리만. el34-web 컨테이너 안에서 root 로 실행.
 - SecRule 구조 분석기 + CRS 패밀리 브라우저 · SecRule 빌더(변수/연산자/패턴/변환/액션) ·
   audit 로그 뷰어(차단/anomaly score/룰 ID) · SIEM(Wazuh) 연동 · 침해대응 훈련 30종.
 - GUI 룰 id ≥ 9000000(CRS 900000-999999 와 분리), 삭제는 id 기준.
@@ -25,7 +25,7 @@ deploy.sh
 ## 실행 / 배포
 ```bash
 python3 server.py 8080        # 로컬 테스트
-./deploy.sh 6v6-web 8080      # 6v6 호스트에서 컨테이너로
+./deploy.sh el34-web 8080      # el34 호스트에서 컨테이너로
 ```
 
 ## API 요약

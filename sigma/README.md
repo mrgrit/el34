@@ -1,6 +1,6 @@
 # el34 Sigma → Wazuh 파이프라인
 
-원본 6v6 에는 없던 **Sigma 탐지**를 el34 에 신규 추가. Sigma 룰(YAML) → Wazuh local rules(XML)
+el34 의 **Sigma 탐지** 계층. Sigma 룰(YAML) → Wazuh local rules(XML)
 로 변환해 Wazuh manager 에 적재한다.
 
 ## 구성

@@ -1,8 +1,8 @@
 <!--
-  6v6-assessor-collection: 정적 수집(cohort-free) — web Wazuh agent 보강.
+  el34-assessor-collection: 정적 수집(cohort-free) — web Wazuh agent 보강.
   web/entrypoint.sh 가 이 블록을 ossec.conf 의 </ossec_config> 앞에 1회 삽입(멱등).
   · FIM(syscheck): Apache/ModSecurity 설정 + 실습 디렉터리 변경 감시(realtime+report_changes+whodata)
-  · 명령 로깅 localfile: PROMPT_COMMAND 가 적는 /var/log/6v6-cmd.log → manager(cmdlog decoder)
+  · 명령 로깅 localfile: PROMPT_COMMAND 가 적는 /var/log/el34-cmd.log → manager(cmdlog decoder)
   (Apache/ModSec access·error·audit localfile 은 entrypoint 가 별도 주입 — 여기서 중복 금지)
 -->
   <syscheck>
@@ -19,5 +19,5 @@
 
   <localfile>
     <log_format>syslog</log_format>
-    <location>/var/log/6v6-cmd.log</location>
+    <location>/var/log/el34-cmd.log</location>
   </localfile>

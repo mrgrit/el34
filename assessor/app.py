@@ -1,4 +1,4 @@
-"""6v6 Assessor — FastAPI 진입점.
+"""el34 Assessor — FastAPI 진입점.
 
 POST /assess  (X-API-Key)  : CC 의 check-spec → 읽기 전용 검사 → pass/fail + 근거
 GET  /health               : 헬스 + 지원 type/target 목록(인증 불필요)
@@ -34,7 +34,7 @@ INDEXER_URL = os.getenv("INDEXER_URL", "https://10.20.32.110:9200")
 INDEXER_USER = os.getenv("INDEXER_USER", "admin")
 INDEXER_PASS = os.getenv("INDEXER_PASS", "SecretPassword")
 
-app = FastAPI(title="6v6 Assessor", docs_url="/api/docs", redoc_url=None)
+app = FastAPI(title="el34 Assessor", docs_url="/api/docs", redoc_url=None)
 
 
 # ─── 인증: X-API-Key ─────────────────────────────────────────────────────────
@@ -164,7 +164,7 @@ def health() -> JSONResponse:
         wazuh_reachable = _indexer_reachable()
     return JSONResponse({
         "status": "ok",
-        "service": "6v6-assessor",
+        "service": "el34-assessor",
         "hostname": os.uname().nodename,
         "version": VERSION,
         "wazuh_reachable": wazuh_reachable,

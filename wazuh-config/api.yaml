@@ -1,4 +1,4 @@
-# 6v6 Wazuh manager API config — overrides defaults.
+# el34 Wazuh manager API config — overrides defaults.
 # Default values produce HTTP 429 (rate limit) easily even with a single student
 # because dashboard + filebeat + indexer health-check polls aggregate quickly.
 

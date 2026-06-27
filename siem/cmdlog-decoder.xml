@@ -1,9 +1,9 @@
 <!--
-  6v6 명령 로깅 decoder — 채점/감사용 정적 수집(cohort-free).
+  el34 명령 로깅 decoder — 채점/감사용 정적 수집(cohort-free).
   각 컨테이너의 PROMPT_COMMAND 가 다음 형식을 송신:
-    logger -t 6v6audit "CMD6V6 host=H user=U pwd=P rc=R cmd=C"   (또는 동일 포맷 파일 라인)
-  → syslog 전송(514, attacker/bastion) · Wazuh agent localfile(/var/log/6v6-cmd.log, web/fw/ips)
-    두 경로 모두 program_name 이 '6v6audit' 로 predecode 된다.
+    logger -t el34audit "CMDEL34 host=H user=U pwd=P rc=R cmd=C"   (또는 동일 포맷 파일 라인)
+  → syslog 전송(514, attacker/bastion) · Wazuh agent localfile(/var/log/el34-cmd.log, web/fw/ips)
+    두 경로 모두 program_name 이 'el34audit' 로 predecode 된다.
 
   ★ Wazuh OS_Regex 주의(PCRE 아님!): decoder <regex> 는 OS_Regex 엔진이라
     '\.' = 임의 문자(PCRE 의 '.'), 그냥 '.' = 리터럴 점 — PCRE 와 반대다.
@@ -11,12 +11,12 @@
   ★ program_name 매칭은 parent, 필드 추출 regex 는 child 로 분리해야 메시지 버퍼에
     regex 가 적용된다(ruleset 의 sudo/sshd decoder 와 동일 구조).
 -->
-<decoder name="6v6-cmdlog">
-  <program_name>^6v6audit</program_name>
+<decoder name="el34-cmdlog">
+  <program_name>^el34audit</program_name>
 </decoder>
 
-<decoder name="6v6-cmdlog-fields">
-  <parent>6v6-cmdlog</parent>
-  <regex>^CMD6V6 host=(\S+) user=(\S+) pwd=(\S+) rc=(\d+) cmd=(\.+)</regex>
+<decoder name="el34-cmdlog-fields">
+  <parent>el34-cmdlog</parent>
+  <regex>^CMDEL34 host=(\S+) user=(\S+) pwd=(\S+) rc=(\d+) cmd=(\.+)</regex>
   <order>cmd_host,cmd_user,cmd_pwd,cmd_rc,command</order>
 </decoder>

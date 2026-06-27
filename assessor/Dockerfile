@@ -1,4 +1,4 @@
-# 6v6 assessor — 읽기 전용 평가 수집 레이어 (FastAPI + docker SDK + httpx)
+# el34 assessor — 읽기 전용 평가 수집 레이어 (FastAPI + docker SDK + httpx)
 # portal 의 마운트·docker.sock 패턴을 참고하되 별도 경량 서비스로 분리.
 FROM python:3.12-slim
 

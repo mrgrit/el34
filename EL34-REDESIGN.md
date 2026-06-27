@@ -1,11 +1,11 @@
-# el34 — 6v6 재설계 (출처 IP 보존 + 단순 네트워크)
+# el34 — 재설계 (출처 IP 보존 + 단순 네트워크)
 
-원본 6v6 의 **NAT 출처추적 결함**(외부 공격자 IP가 HAProxy/masquerade 로 게이트웨이 IP에
+이전 설계의 **NAT 출처추적 결함**(외부 공격자 IP가 HAProxy/masquerade 로 게이트웨이 IP에
 덮여 SIEM·차단에서 식별 불가)을 근본 제거한 재설계.
 
-## 핵심 변경 (vs 6v6)
+## 핵심 변경 (vs 이전 설계)
 
-| 항목 | 6v6 (이전) | el34 (현재) |
+| 항목 | 이전 설계 | el34 (현재) |
 |---|---|---|
 | 엣지 | HAProxy L7 종료 (출처 소실) | **제거** — fw 가 L3 포트분기 DNAT 만 |
 | ips | dmz 로 masquerade (출처→게이트웨이) | **masquerade 제거** — 출처 native 보존 |
@@ -62,4 +62,4 @@ Sigma 적재. (개별: `./el34.sh {install|up|down [-v]|net|certs|env|sigma}`)
 - ModSecurity(WAF) audit: `remote_address: <attacker>`  ← 차단 기준이 진짜 공격자
 - Apache access log: `<attacker>`
 
-> 6v6 은 같은 지점에서 `10.20.32.1`(게이트웨이)로 덮였음 → el34 에서 해결.
+> 이전 설계는 같은 지점에서 `10.20.32.1`(게이트웨이)로 덮였음 → el34 에서 해결.

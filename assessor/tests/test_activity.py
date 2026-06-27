@@ -1,4 +1,4 @@
-"""6v6 Assessor — /activity 모니터링 피드 단위 테스트 (stdlib unittest).
+"""el34 Assessor — /activity 모니터링 피드 단위 테스트 (stdlib unittest).
 
 실행:  python3 -m unittest assessor.tests.test_activity -v   (repo 루트)
 """
@@ -27,7 +27,7 @@ class FakeAlerts:
 
 def _cmd_prompt(ts, host, user, cmd, rc="0"):
     return {"timestamp": ts, "rule": {"id": "100260", "level": 3,
-            "groups": ["6v6", "cmdlog", "audit"], "description": "cmd"},
+            "groups": ["el34", "cmdlog", "audit"], "description": "cmd"},
             "agent": {"name": host},
             "data": {"cmd_user": user, "cmd_host": host, "command": cmd, "cmd_rc": rc}}
 

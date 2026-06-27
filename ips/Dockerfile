@@ -1,4 +1,4 @@
-# 6v6 ips — inline IPS: pipe <-> dmz forwarding + Suricata sniff.
+# el34 ips — inline IPS: pipe <-> dmz forwarding + Suricata sniff.
 FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -37,7 +37,7 @@ RUN mkdir -p /run/sshd /var/log/suricata && \
 
 COPY ips/suricata-local.rules /etc/suricata/rules/local.rules
 # secuops-easy 교육용 GUI (IPS 콘솔) — 이미지에 내장(vendored, 네트워크 불필요).
-# entrypoint 가 :8080 으로 자동 기동 → down/up·재부팅 후 ips-gui.6v6.lab 즉시 접속 가능.
+# entrypoint 가 :8080 으로 자동 기동 → down/up·재부팅 후 ips-gui.el34.lab 즉시 접속 가능.
 COPY secuops-easy-deploy/gui/suricata_edu_gui/ /opt/suricata_edu_gui/
 COPY ips/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh

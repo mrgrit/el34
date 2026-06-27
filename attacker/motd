@@ -1,5 +1,5 @@
 ========================================================
-  6v6 Attacker - pentest learning console
+  el34 Attacker - pentest learning console
 ========================================================
 
 Installed tools:
@@ -24,11 +24,11 @@ All HTTP attacks traverse: attacker -> fw -> ips -> web -> vuln
 Internal services (siem, dashboard, portal): -> fw -> ips -> [target]
 
 Quick start:
-  curl http://juice.6v6.lab/                    (vuln, via WAF)
-  curl -A 'sqlmap/1.7' http://juice.6v6.lab/    (WAF blocks, IDS alerts)
+  curl http://juice.el34.lab/                    (vuln, via WAF)
+  curl -A 'sqlmap/1.7' http://juice.el34.lab/    (WAF blocks, IDS alerts)
   nmap -sT -p 80,443 10.20.32.80                (web direct, via fw+ips)
-  nikto -h http://juice.6v6.lab/
+  nikto -h http://juice.el34.lab/
 
 Browse SIEM (no WAF in path):
-  https://siem.6v6.lab/   (admin / SecretPassword)
+  https://siem.el34.lab/   (admin / SecretPassword)
 ========================================================

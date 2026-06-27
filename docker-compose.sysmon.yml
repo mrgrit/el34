@@ -1,10 +1,10 @@
-# 6v6 sysmon-host overlay — W11 sysmon-for-linux 학습 환경 (systemd + EBPF)
+# el34 sysmon-host overlay — W11 sysmon-for-linux 학습 환경 (systemd + EBPF)
 # 호스트 kernel 의 BPF/BTF 사용. SYS_ADMIN + BPF cap + debugfs + cgroupns=host 필수.
-# SKIP_SYSMON=1 bash 6v6.sh up 로 비활성화 가능.
+# SKIP_SYSMON=1 bash el34.sh up 로 비활성화 가능.
 
 services:
   sysmon-host:
-    container_name: 6v6-sysmon-host
+    container_name: el34-sysmon-host
     build:
       context: .
       dockerfile: sysmon/Dockerfile

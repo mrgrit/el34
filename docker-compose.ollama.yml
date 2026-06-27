@@ -1,10 +1,10 @@
-# 6v6 Ollama overlay — aisec 코스 의 LLM 호출용 (gemma3:4b default).
+# el34 Ollama overlay — aisec 코스 의 LLM 호출용 (gemma3:4b default).
 # CPU inference (slow, 첫 응답 30-60s). GPU 가 있으면 --gpus all 옵션.
-# SKIP_OLLAMA=1 bash 6v6.sh up 로 비활성.
+# SKIP_OLLAMA=1 bash el34.sh up 로 비활성.
 
 services:
   ollama:
-    container_name: 6v6-ollama
+    container_name: el34-ollama
     image: ollama/ollama:latest
     hostname: ollama
     networks:

@@ -1,4 +1,4 @@
-"""6v6 (옵션) 룰 무장 provisioner — §8-3.
+"""el34 (옵션) 룰 무장 provisioner — §8-3.
 
 ★ 기본 비활성(`SKIP_PROVISIONER=1`, compose profile `provisioner` 미활성). Assessor 와
   **분리된 별도 write 서비스**다. read-only 원칙의 유일한 예외로, tubewar 가 미션 시작 시
@@ -7,7 +7,7 @@
 안전장치:
   - CC 가 raw 룰 텍스트를 보내지 않는다. **named 템플릿 화이트리스트** + 파라미터 검증만.
   - sid 는 provisioner 가 9000000+ 슬롯에서 할당(학생/기존 룰과 충돌 방지).
-  - write 대상은 manager 의 전용 파일 `/var/ossec/etc/rules/6v6-provisioned-rules.xml`
+  - write 대상은 manager 의 전용 파일 `/var/ossec/etc/rules/el34-provisioned-rules.xml`
     하나로 한정(다른 룰/디코더 불변). revoke 로 깔끔히 제거.
   - 토폴로지·Suricata·취약웹·Bastion 불변. 결합·상태 트레이드오프는 ASSESSOR.md §8 에 기록.
 """
@@ -26,16 +26,16 @@ from .app import DockerExecutor  # 동일 docker.sock exec 메커니즘 재사�
 
 API_KEY = os.getenv("API_KEY", "ccc-api-key-2026")
 VERSION = "1.1.0"
-SIEM = "6v6-siem"
+SIEM = "el34-siem"
 # ★ 'zz-' prefix — Wazuh 는 etc/rules/*.xml 를 알파벳 순으로 로드하므로, if_sid(100260)/
 #   if_group(syscheck) 참조 대상이 먼저 로드되도록 provisioned 파일을 **마지막**에 로드시킨다.
-RULES_FILE = "/var/ossec/etc/rules/zz-6v6-provisioned-rules.xml"
-# ★ Wazuh rule id 는 최대 6자리(≤999999). 기존 6v6 커스텀(100200-100261)과 떨어진
+RULES_FILE = "/var/ossec/etc/rules/zz-el34-provisioned-rules.xml"
+# ★ Wazuh rule id 는 최대 6자리(≤999999). 기존 el34 커스텀(100200-100261)과 떨어진
 #   110000-119999 를 provisioner 전용 슬롯으로 쓴다. (Suricata sid≥9000000 슬롯과 무관.)
 SID_BASE = 110000
 SID_MAX = 119999
 
-app = FastAPI(title="6v6 Provisioner (옵션·write)", docs_url="/api/docs", redoc_url=None)
+app = FastAPI(title="el34 Provisioner (옵션·write)", docs_url="/api/docs", redoc_url=None)
 _ex = DockerExecutor()
 
 
@@ -74,8 +74,8 @@ def _tpl_command(sid, params):
     return (f'  <rule id="{sid}" level="{level}">\n'
             f'    <if_sid>100260</if_sid>\n'
             f'    <field name="command" type="pcre2">{patt}</field>\n'
-            f'    <description>6v6 무장: {label} — cmd $(command) by $(cmd_user)@$(cmd_host)</description>\n'
-            f'    <group>6v6,provisioned,cmdlog,</group>\n'
+            f'    <description>el34 무장: {label} — cmd $(command) by $(cmd_user)@$(cmd_host)</description>\n'
+            f'    <group>el34,provisioned,cmdlog,</group>\n'
             f'  </rule>\n')
 
 
@@ -87,8 +87,8 @@ def _tpl_fim(sid, params):
     return (f'  <rule id="{sid}" level="{level}">\n'
             f'    <if_group>syscheck</if_group>\n'
             f'    <field name="file" type="pcre2">{patt}</field>\n'
-            f'    <description>6v6 무장: {label} — FIM 변경 $(file)</description>\n'
-            f'    <group>6v6,provisioned,syscheck,</group>\n'
+            f'    <description>el34 무장: {label} — FIM 변경 $(file)</description>\n'
+            f'    <group>el34,provisioned,syscheck,</group>\n'
             f'  </rule>\n')
 
 
@@ -110,15 +110,15 @@ def _write_rules_and_reload(body: str) -> tuple[bool, str]:
     b64 전송이라 셸 주입 불가."""
     b64 = base64.b64encode(body.encode()).decode()
     script = (
-        f'F={RULES_FILE}; B=/tmp/6v6-prov.bak; HAD=1\n'
+        f'F={RULES_FILE}; B=/tmp/el34-prov.bak; HAD=1\n'
         f'if [ -f "$F" ]; then cp "$F" "$B"; else HAD=0; fi\n'
         f'echo {b64} | base64 -d > "$F"\n'
         f'chown root:wazuh "$F" 2>/dev/null; chmod 660 "$F" 2>/dev/null\n'
-        f'if /var/ossec/bin/wazuh-analysisd -t >/tmp/6v6-prov-test.log 2>&1; then\n'
-        f'  /var/ossec/bin/wazuh-control restart >/tmp/6v6-prov-reload.log 2>&1; echo PROV_OK\n'
+        f'if /var/ossec/bin/wazuh-analysisd -t >/tmp/el34-prov-test.log 2>&1; then\n'
+        f'  /var/ossec/bin/wazuh-control restart >/tmp/el34-prov-reload.log 2>&1; echo PROV_OK\n'
         f'else\n'
         f'  if [ "$HAD" = 1 ]; then cp "$B" "$F"; else rm -f "$F"; fi\n'
-        f'  echo PROV_TESTFAIL; tail -3 /tmp/6v6-prov-test.log\n'
+        f'  echo PROV_TESTFAIL; tail -3 /tmp/el34-prov-test.log\n'
         f'fi\n'
         f'rm -f "$B"\n'
     )
@@ -131,14 +131,14 @@ def _remove_rules_and_reload() -> tuple[bool, str]:
     """무장 룰이 0개가 되면 빈 <group>(Wazuh 가 거부) 대신 파일을 **삭제**하고 reload."""
     r = _ex.exec(SIEM, ["sh", "-c",
                         f"rm -f {RULES_FILE}; /var/ossec/bin/wazuh-control restart "
-                        f">/tmp/6v6-prov-reload.log 2>&1; echo PROV_OK"], timeout=90)
+                        f">/tmp/el34-prov-reload.log 2>&1; echo PROV_OK"], timeout=90)
     return ("PROV_OK" in r.stdout), (r.stdout + r.stderr).strip()[:300]
 
 
 def _wrap(rules: dict[int, str]) -> str:
     inner = "".join(rules[s] for s in sorted(rules))
-    return ('<!-- 6v6 provisioned rules (provisioner 가 관리 — 수동 편집 금지) -->\n'
-            '<group name="6v6,provisioned,">\n' + inner + '</group>\n')
+    return ('<!-- el34 provisioned rules (provisioner 가 관리 — 수동 편집 금지) -->\n'
+            '<group name="el34,provisioned,">\n' + inner + '</group>\n')
 
 
 def _parse_existing() -> dict[int, str]:
@@ -154,7 +154,7 @@ def _parse_existing() -> dict[int, str]:
 @app.get("/health")
 def health() -> JSONResponse:
     return JSONResponse({
-        "status": "ok", "service": "6v6-provisioner", "version": VERSION,
+        "status": "ok", "service": "el34-provisioner", "version": VERSION,
         "hostname": os.uname().nodename, "write_enabled": True,
         "templates": sorted(TEMPLATES), "rules_file": RULES_FILE,
         "active_sids": sorted(_parse_existing()),

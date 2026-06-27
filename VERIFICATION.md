@@ -2,9 +2,9 @@
 
 검증일: 2026-06-15 / 대상: 192.168.0.151 (elf4, VMware Ubuntu Desktop, 23GB/8vCPU)
 
-## ✅ 핵심 목표 — 출처 IP 보존 (6v6 결함 제거)
+## ✅ 핵심 목표 — 출처 IP 보존 (이전 설계 결함 제거)
 
-6v6 은 HAProxy + ips masquerade 로 공격자 IP가 게이트웨이(10.20.32.1)로 덮여 식별 불가였음.
+이전 설계는 HAProxy + ips masquerade 로 공격자 IP가 게이트웨이(10.20.32.1)로 덮여 식별 불가였음.
 el34 은 **보안장비 전 계층이 진짜 출처 IP를 봄** — 두 경로 모두 실측 확인:
 
 | 경로 | 출처 | 결과 |
@@ -55,7 +55,7 @@ LAN 격리 확인: 위 서비스 모두 외부면 .161 에서 접근 시 000(거
    dvwa SQLi 는 ModSec 가 403 차단. → 외부 공격자 IP 식별·차단 완전 동작.
 2. **tubewar(.107) 콘텐츠 기반 검증 미수행** — .107 은 SSH(:22)만 열림, 자격증명/API 없음(별도 플랫폼).
    시나리오·미션 콘텐츠로의 검증은 tubewar 접근 권한 확보 후 진행 필요.
-3. **MISP healthcheck 간헐 unhealthy** — 헬스체크 timeout 1s 가 과도(서비스는 301/302 정상 응답, 원본 6v6도 동일). 기능 무관·표시상 이슈. (현재는 healthy)
+3. **MISP healthcheck 간헐 unhealthy** — 헬스체크 timeout 1s 가 과도(서비스는 301/302 정상 응답, 이전 설계도 동일). 기능 무관·표시상 이슈. (현재는 healthy)
 4. **WAF/Apache 알림의 SIEM `data.srcip` 미색인** — 외부 공격자 IP 추적은 Suricata(`data.src_ip`)
    경로로 완결(93건 귀속). ModSec/Apache 쪽은 파일 레벨엔 `remote_address`로 출처가 보존되나
    Wazuh 알림 `data.srcip` 로는 색인되지 않음(web access-log 디코더/localfile 튜닝 시 해결).

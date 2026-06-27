@@ -1,6 +1,6 @@
-"""6v6 Bastion API — 학습용 경량 placeholder.
+"""el34 Bastion API — 학습용 경량 placeholder.
 
-CCC 본 프로젝트의 Bastion (apps/bastion) 은 풀 LLM ReAct 에이전트지만, 6v6 은 학습/배포
+CCC 본 프로젝트의 Bastion (apps/bastion) 은 풀 LLM ReAct 에이전트지만, el34 은 학습/배포
 경량화를 위해 health + skills + targets 같은 정보 endpoint 만 제공한다.
 LLM 통합은 LLM_BASE_URL 환경변수가 설정되면 옵션으로 동작.
 """
@@ -16,7 +16,7 @@ from pydantic import BaseModel
 
 API_KEY = os.getenv("API_KEY", "ccc-api-key-2026")
 
-app = FastAPI(title="6v6 Bastion API", version="0.1.0")
+app = FastAPI(title="el34 Bastion API", version="0.1.0")
 
 
 def _check_api_key(x_api_key: str | None) -> None:
@@ -30,14 +30,14 @@ def health() -> dict:
         "status": "ok",
         "hostname": socket.gethostname(),
         "time": datetime.now(timezone.utc).isoformat(),
-        "service": "6v6-bastion",
+        "service": "el34-bastion",
         "llm_configured": bool(os.getenv("LLM_BASE_URL")),
     }
 
 
 @app.get("/targets")
 def targets(x_api_key: str | None = Header(default=None)) -> dict:
-    """List of 6v6 container aliases."""
+    """List of el34 container aliases."""
     _check_api_key(x_api_key)
     return {
         "targets": [

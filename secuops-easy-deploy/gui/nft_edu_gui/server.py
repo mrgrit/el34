@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """nft_edu_gui — 방화벽(nftables) 교육용 GUI 백엔드.
 
-6v6 secuops-easy 특강용. 6v6-fw 컨테이너 안에서 root 로 실행되며, 학생이 웹 UI 에서
+el34 secuops-easy 특강용. el34-fw 컨테이너 안에서 root 로 실행되며, 학생이 웹 UI 에서
 방화벽 룰/NAT 을 구성하면 그것이 만들어내는 **실제 nft 명령** 을 미리보기로 보여준 뒤
 적용한다. 의존성 0 — Python 3 표준 라이브러리만 사용한다 (폐쇄망 컨테이너용).
 

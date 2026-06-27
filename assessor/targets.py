@@ -1,15 +1,15 @@
-"""6v6 Assessor — target(별칭) → 컨테이너 해석 맵.
+"""el34 Assessor — target(별칭) → 컨테이너 해석 맵.
 
 CC 가 보낸 check-spec 의 `target`/`container` 별칭을 docker exec 대상 컨테이너명으로
 변환한다. 클라이언트는 문맥 없이(dumb) 동작 — 어떤 과목/학년/반인지 전혀 모른다.
-여기 정의된 별칭은 순수하게 6v6 토폴로지의 표준 호스트 이름일 뿐이다.
+여기 정의된 별칭은 순수하게 el34 토폴로지의 표준 호스트 이름일 뿐이다.
 
 stdlib 만 사용 — docker/fastapi 없이 import 가능(단위 테스트 친화).
 """
 from __future__ import annotations
 
 # 표준 별칭 → (컨테이너명, dmz/토폴로지 IP). IP 는 참고용(evidence) — exec 는 컨테이너명 사용.
-# 6v6 docker-compose.yaml 의 고정 IP 와 일치.
+# el34 docker-compose.yaml 의 고정 IP 와 일치.
 _TARGETS: dict[str, tuple[str, str]] = {
     # ─ 인프라 코어 ─
     "bastion":      ("el34-bastion",      "10.20.30.201"),

@@ -1,4 +1,4 @@
-# 6v6 portal — FastAPI + Jinja2 + HTMX 기반 관리 대시보드
+# el34 portal — FastAPI + Jinja2 + HTMX 기반 관리 대시보드
 FROM python:3.12-slim
 
 WORKDIR /app

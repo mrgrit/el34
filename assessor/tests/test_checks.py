@@ -1,4 +1,4 @@
-"""6v6 Assessor — 보안 핵심 로직 단위 테스트 (stdlib unittest 만; docker/fastapi 불필요).
+"""el34 Assessor — 보안 핵심 로직 단위 테스트 (stdlib unittest 만; docker/fastapi 불필요).
 
 검증 초점(7절 DoD):
   - CC 가 준 임의 문자열이 셸 exec 로 흐르지 않음(argv 템플릿 + 화이트리스트)
@@ -50,15 +50,15 @@ class FakeAlerts:
 # ─── targets ────────────────────────────────────────────────────────────────
 class TargetsTest(unittest.TestCase):
     def test_aliases(self):
-        self.assertEqual(targets.resolve_container("web"), "6v6-web")
-        self.assertEqual(targets.resolve_container("waf"), "6v6-web")
-        self.assertEqual(targets.resolve_container("fw"), "6v6-fw")
-        self.assertEqual(targets.resolve_container("secu"), "6v6-fw")
-        self.assertEqual(targets.resolve_container("ips"), "6v6-ips")
-        self.assertEqual(targets.resolve_container("ids"), "6v6-ips")
-        self.assertEqual(targets.resolve_container("siem"), "6v6-siem")
-        self.assertEqual(targets.resolve_container("admin"), "6v6-adminconsole")
-        self.assertEqual(targets.resolve_container("6v6-web"), "6v6-web")
+        self.assertEqual(targets.resolve_container("web"), "el34-web")
+        self.assertEqual(targets.resolve_container("waf"), "el34-web")
+        self.assertEqual(targets.resolve_container("fw"), "el34-fw")
+        self.assertEqual(targets.resolve_container("secu"), "el34-fw")
+        self.assertEqual(targets.resolve_container("ips"), "el34-ips")
+        self.assertEqual(targets.resolve_container("ids"), "el34-ips")
+        self.assertEqual(targets.resolve_container("siem"), "el34-siem")
+        self.assertEqual(targets.resolve_container("admin"), "el34-adminconsole")
+        self.assertEqual(targets.resolve_container("el34-web"), "el34-web")
 
     def test_unknown(self):
         with self.assertRaises(KeyError):
@@ -76,7 +76,7 @@ class HostCheckTest(unittest.TestCase):
         self.assertTrue(r["passed"])
         self.assertEqual(r["raw"]["engine"], "osquery")
         cont, argv = ex.calls[0]
-        self.assertEqual(cont, "6v6-web")
+        self.assertEqual(cont, "el34-web")
         self.assertEqual(argv[0], "osqueryi")          # SQL 은 단일 argv(셸 없음)
         self.assertIn("/etc/apache2/apache2.conf", argv[2])   # path 가 SQL 리터럴에 안전 삽입
 
@@ -147,7 +147,7 @@ class HostCheckTest(unittest.TestCase):
         r = run_check({"id": "c", "type": "log_contains", "target": "ips",
                        "params": {"log": "suricata", "pattern": "sqli"}}, ex, None)
         self.assertTrue(r["passed"])
-        self.assertEqual(ex.calls[0][0], "6v6-ips")   # suricata 기본 컨테이너
+        self.assertEqual(ex.calls[0][0], "el34-ips")   # suricata 기본 컨테이너
         self.assertEqual(ex.calls[0][1][0], "tail")
 
 
@@ -255,10 +255,10 @@ class WazuhCheckTest(unittest.TestCase):
         self.assertFalse(r3["passed"])
 
     def test_command_ran(self):
-        a = _alert("100260", 3, ["6v6", "cmdlog", "audit"],
+        a = _alert("100260", 3, ["el34", "cmdlog", "audit"],
                    data={"cmd_user": "ccc", "cmd_host": "attacker",
-                         "command": "sqlmap -u http://juice.6v6.lab"},
-                   full_log="6v6cmd: host=attacker user=ccc pwd=/home/ccc rc=0 cmd=sqlmap -u ...")
+                         "command": "sqlmap -u http://juice.el34.lab"},
+                   full_log="el34cmd: host=attacker user=ccc pwd=/home/ccc rc=0 cmd=sqlmap -u ...")
         src = FakeAlerts([a])
         r = run_check({"id": "c", "type": "command_ran",
                        "params": {"pattern": "sqlmap"}}, None, src)

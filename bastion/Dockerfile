@@ -1,4 +1,4 @@
-# 6v6 bastion — SSH 점프 호스트 + Bastion API + rsyslog forward (syslog 패러다임)
+# el34 bastion — SSH 점프 호스트 + Bastion API + rsyslog forward (syslog 패러다임)
 FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -61,11 +61,11 @@ RUN mkdir -p /run/sshd /var/lib/bastion && \
     sed -i 's/^#PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config && \
     sed -i 's/^PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
 
-# 6v6 의 minimal stub api (fallback) — LLM_BASE_URL 미설정 시 /health 만
+# el34 의 minimal stub api (fallback) — LLM_BASE_URL 미설정 시 /health 만
 COPY bastion/api.py /opt/bastion-api/api.py
 
 # Full CCC bastion source — apps/bastion + packages/bastion + packages/manager_ai
-# (mrgrit/ccc 의 동일 코드, 6v6 build context 에 복사). aisec 89 step 의
+# (mrgrit/ccc 의 동일 코드, el34 build context 에 복사). aisec 89 step 의
 # /chat + /kg/* endpoint 제공. PYTHONPATH 로 import 경로 통합.
 COPY bastion/src /opt/ccc-src
 ENV PYTHONPATH=/opt/ccc-src

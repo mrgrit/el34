@@ -1,4 +1,4 @@
-# 6v6 web — Apache 2.4 + ModSecurity v2 + OWASP CRS + 랜딩 + 7 vuln reverse proxy + Wazuh agent
+# el34 web — Apache 2.4 + ModSecurity v2 + OWASP CRS + 랜딩 + 7 vuln reverse proxy + Wazuh agent
 FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -43,14 +43,14 @@ RUN if [ ! -f /etc/modsecurity/modsecurity.conf ]; then \
         cp /etc/modsecurity/modsecurity.conf-recommended /etc/modsecurity/modsecurity.conf || true; \
     fi && \
     # 학습 환경 default = **SecRuleEngine On** (전역 차단). per-vhost override 로
-    # juice.6v6.lab 만 DetectionOnly (010-juice.conf 에서 `SecRuleEngine DetectionOnly`).
+    # juice.el34.lab 만 DetectionOnly (010-juice.conf 에서 `SecRuleEngine DetectionOnly`).
     # 다른 vhost (dvwa/neobank/...) 는 On 유지 → secuops W01-S7 Red 차단 검증 통과.
     sed -i 's|^SecRuleEngine .*|SecRuleEngine On|' /etc/modsecurity/modsecurity.conf && \
     sed -i 's|^SecAuditEngine .*|SecAuditEngine RelevantOnly|' /etc/modsecurity/modsecurity.conf && \
     sed -i 's|^SecAuditLog .*|SecAuditLog /var/log/apache2/modsec_audit.log|' /etc/modsecurity/modsecurity.conf && \
     # SecAuditLogFormat / SecAuditLogType / SecAuditLogParts 명시 (기존 라인 제거 + 추가)
     sed -i '/^SecAuditLogFormat/d;/^SecAuditLogType/d;/^SecAuditLogParts/d' /etc/modsecurity/modsecurity.conf && \
-    printf '\n# 6v6 — JSON one-line per transaction (jq + Wazuh decoder)\nSecAuditLogFormat JSON\nSecAuditLogType Serial\nSecAuditLogParts ABCFHZ\n' >> /etc/modsecurity/modsecurity.conf
+    printf '\n# el34 — JSON one-line per transaction (jq + Wazuh decoder)\nSecAuditLogFormat JSON\nSecAuditLogType Serial\nSecAuditLogParts ABCFHZ\n' >> /etc/modsecurity/modsecurity.conf
 
 # 랜딩 페이지 + vhost
 COPY web/landing/ /var/www/landing/
@@ -70,7 +70,7 @@ RUN cd /etc/apache2/sites-available && \
 COPY web/wazuh-agent.conf.append /tmp/wazuh-agent.conf.append
 
 # secuops-easy 교육용 GUI (WAF 콘솔) — 이미지에 내장(vendored, 네트워크 불필요).
-# entrypoint 가 :8080 으로 자동 기동 → down/up·재부팅 후 waf-gui.6v6.lab 즉시 접속 가능.
+# entrypoint 가 :8080 으로 자동 기동 → down/up·재부팅 후 waf-gui.el34.lab 즉시 접속 가능.
 COPY secuops-easy-deploy/gui/modsec_edu_gui/ /opt/modsec_edu_gui/
 
 COPY web/entrypoint.sh /entrypoint.sh

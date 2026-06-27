@@ -47,7 +47,7 @@ async function loadConfig() {
 }
 
 // analyzer
-$('#an-sample').onclick = () => { $('#an-input').value = 'alert http $EXTERNAL_NET any -> $HOME_NET any (msg:"6V6 SQLi UNION"; flow:established,to_server; http.uri; content:"UNION"; nocase; content:"SELECT"; nocase; distance:0; classtype:web-application-attack; sid:1000001; rev:2;)'; };
+$('#an-sample').onclick = () => { $('#an-input').value = 'alert http $EXTERNAL_NET any -> $HOME_NET any (msg:"EL34 SQLi UNION"; flow:established,to_server; http.uri; content:"UNION"; nocase; content:"SELECT"; nocase; distance:0; classtype:web-application-attack; sid:1000001; rev:2;)'; };
 $('#an-btn').onclick = async () => {
   const r = await postJSON('/api/rule/analyze', { rule: $('#an-input').value });
   if (r.error) { $('#an-out').innerHTML = `<p class="result err">${esc(r.error)}</p>`; return; }

@@ -1,4 +1,4 @@
-# 6v6 attacker — pentest 도구 + rsyslog forward (syslog 패러다임)
+# el34 attacker — pentest 도구 + rsyslog forward (syslog 패러다임)
 FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -97,9 +97,9 @@ RUN mkdir -p /run/sshd && \
     sed -i 's/^#PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config && \
     sed -i 's/^PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
 
-# 6v6 vhost 매핑은 docker-compose.yaml 의 attacker.extra_hosts 로 runtime 주입.
+# el34 vhost 매핑은 docker-compose.yaml 의 attacker.extra_hosts 로 runtime 주입.
 # Build-time /etc/hosts 수정은 buildx 가 RO mount 라 exit 2 — runtime 단계로 이전됨.
-# extra_hosts: juice.6v6.lab / dvwa.6v6.lab / ... (compose 가 컨테이너 시작 시 적용).
+# extra_hosts: juice.el34.lab / dvwa.el34.lab / ... (compose 가 컨테이너 시작 시 적용).
 
 COPY attacker/entrypoint.sh /entrypoint.sh
 COPY attacker/motd /etc/motd

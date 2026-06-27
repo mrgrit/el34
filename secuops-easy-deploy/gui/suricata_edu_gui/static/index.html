@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Suricata IPS 콘솔 · 6v6 교육용</title>
+<title>Suricata IPS 콘솔 · el34 교육용</title>
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -11,7 +11,7 @@
   <aside class="sidebar">
     <div class="brand">
       <div class="brand-logo">🛰️</div>
-      <div><div class="brand-title">Suricata IPS</div><div class="brand-sub">6v6 교육용 콘솔</div></div>
+      <div><div class="brand-title">Suricata IPS</div><div class="brand-sub">el34 교육용 콘솔</div></div>
     </div>
     <nav class="nav">
       <a class="nav-item active" data-view="dashboard">📊 대시보드</a>
@@ -43,7 +43,7 @@
         <div class="panel-b help">
           <p><b>IPS/IDS(Suricata)</b> 는 방화벽을 통과한 트래픽의 <b>내용(payload)</b> 을 검사한다.
           방화벽이 "누가/어디로"(IP·포트)를 본다면, IPS 는 "무엇을 담고 있나"(공격 패턴)를 본다.
-          6v6 에서 Suricata 는 fw↔ips 사이망(eth0)을 감시하며, 탐지 결과를 <code>eve.json</code> 에 기록한다.</p>
+          el34 에서 Suricata 는 fw↔ips 사이망(eth0)을 감시하며, 탐지 결과를 <code>eve.json</code> 에 기록한다.</p>
           <ul>
             <li><b>탐지룰(rule)</b> — action·프로토콜·방향 헤더 + 옵션(content/pcre/flow/sid)</li>
             <li><b>eve.json</b> — 모든 이벤트(alert/http/dns/tls/flow)의 JSON 로그</li>
@@ -88,7 +88,7 @@
                 <label>목적지<input name="dst" value="any"></label>
                 <label>dport<input name="dport" value="any"></label>
               </div>
-              <label>msg (설명)<input name="msg" placeholder="6V6 SQLi UNION SELECT"></label>
+              <label>msg (설명)<input name="msg" placeholder="EL34 SQLi UNION SELECT"></label>
               <div class="row">
                 <label>flow<select name="flow"><option value="">(없음)</option><option value="to_server">to_server</option><option value="to_client">to_client</option><option value="established,to_server">established,to_server</option></select></label>
                 <label>탐지 버퍼<select name="buffer"><option value="">(없음/raw)</option><option>http.uri</option><option>http.user_agent</option><option>http.host</option><option>http.method</option><option>http.header</option><option>http.request_body</option><option>http.cookie</option><option>dns.query</option><option>tls.sni</option></select></label>
@@ -138,7 +138,7 @@
       <div class="panel"><div class="panel-h">SIEM (Wazuh) 연동</div>
         <div class="panel-b">
           <p class="note">Suricata 의 <code>eve.json</code> 은 ips 의 Wazuh 에이전트가 직접 tail 하여 SIEM 매니저(10.20.32.100)로 보낸다.
-          대부분의 6v6 환경에서는 <b>이미 연동</b>되어 있다 — alert 가 Wazuh 대시보드에 rule.id 86601 등으로 나타난다.</p>
+          대부분의 el34 환경에서는 <b>이미 연동</b>되어 있다 — alert 가 Wazuh 대시보드에 rule.id 86601 등으로 나타난다.</p>
           <div id="siem-status" class="siem-status">상태 확인 중…</div>
           <div class="btns"><button class="btn btn-primary" id="siem-enable">연동 확인/켜기</button></div>
           <div class="cmdbox" id="siem-detail"></div>

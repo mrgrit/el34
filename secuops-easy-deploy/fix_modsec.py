@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One-shot normalizer for 6v6-web /etc/modsecurity/modsecurity.conf.
+"""One-shot normalizer for el34-web /etc/modsecurity/modsecurity.conf.
 
 The exception region (scanner_pool + service_accounts) had accreted into three
 duplicated blocks (duplicate ids 1000001/1000002) plus one truncated, invalid
@@ -12,7 +12,7 @@ P = "/etc/modsecurity/modsecurity.conf"
 lines = open(P, encoding="utf-8").read().split("\n")
 
 CLEAN = [
-    "# 6v6 — Exception: scanner pool subnet + service accounts "
+    "# el34 — Exception: scanner pool subnet + service accounts "
     "(normalized 2026-05-27; previously triplicated/truncated → AH00526)",
     'SecRule REMOTE_ADDR "@ipMatch 10.20.30.0/24" '
     '"id:1000001,phase:1,t:none,nolog,allow,msg:\'Allow scanner pool subnet\'"',

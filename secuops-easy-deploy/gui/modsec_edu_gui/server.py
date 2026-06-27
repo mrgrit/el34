@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """modsec_edu_gui — WAF(ModSecurity) 교육용 GUI 백엔드.
 
-6v6 secuops-easy 특강용. 6v6-web 컨테이너 안에서 root 로 실행되며, 학생이 웹 UI 에서
+el34 secuops-easy 특강용. el34-web 컨테이너 안에서 root 로 실행되며, 학생이 웹 UI 에서
 탐지룰(SecRule)을 구성하면 그것이 만들어내는 **실제 SecRule 한 줄** 을 미리보기로 보여준 뒤
 /etc/modsecurity/edu_rules.conf 에 적용하고 apache2ctl configtest → graceful 로 반영한다.
 
