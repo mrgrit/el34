@@ -39,8 +39,10 @@ bastion/src/
 │   ├── orchestrator.py   # run_harness 6단계 엔진 (페르소나 스코프 ReAct, 생성-검증 루프)
 │   ├── targets.py        # 역할→컨테이너 해석 (discovery 우선, el34 정적 폴백)  [Phase B]
 │   ├── discovery.py      # docker 인프라 자동 발견 + 역할 추론 + 자산 등록        [Phase B]
-│   └── tests/test_harness.py, test_discovery.py
+│   ├── harness_gen.py    # discovery+경험 → 하네스 자동 생성 + 감사 아티팩트       [Phase C]
+│   └── tests/test_harness.py, test_discovery.py, test_harness_gen.py
 └── harness/
+    ├── generated/<id>/   # 자동 생성 spec + 팀/매트릭스/모델근거/batches (감사용) [Phase C]
     ├── BASTION.md                         # 전역 SOC 규칙 (모든 하네스에 주입)
     ├── .bastion/agents/*.md               # 기본 SOC 페르소나 12종 (8섹션)
     ├── .bastion/skills/<harness>/SKILL.md # 팀 워크플로 (incident-response-team, threat-hunt-team)
@@ -209,7 +211,7 @@ check_modsecurity/configure_nftables)은 `container_for(role)` 로 대체됨.
 | 메서드/경로 | 설명 |
 |---|---|
 | `POST /harness/run` | 하네스 6단계 실행 — NDJSON 스트림. `{message, harness_id?, auto_approve, approval_mode, course, stream}`. `harness_id` 비우면 트리거 자동매칭. |
-| `POST /harness/generate` | dry-run — 하네스 spec 로드+검증만(JSON). |
+| `POST /harness/generate` | dry-run — 하네스 spec 로드/생성+검증만(JSON). `auto:true` → discovery+경험 자동 생성. |
 | `GET /harness/list` | 사용 가능한 하네스 목록. |
 | `GET /personas` | 기본 SOC 페르소나 라이브러리. |
 | `POST /discover` | 인프라 재스캔 → 역할맵+자산. |
@@ -227,6 +229,12 @@ curl -sN -X POST http://<bastion>:9100/harness/run -H 'Content-Type: application
 # dry-run (실행 없이 spec 확인)
 curl -s -X POST http://<bastion>:9100/harness/generate -H 'Content-Type: application/json' \
   -d '{"harness_id":"incident-response-team","message":"x"}'
+
+# 자동 생성 (discovery+경험으로 인프라 맞춤 하네스 — 수동 md 불필요)
+curl -s -X POST http://<bastion>:9100/harness/generate -H 'Content-Type: application/json' \
+  -d '{"message":"인프라 보안 점검하고 위협 대응","auto":true}'
+curl -sN -X POST http://<bastion>:9100/harness/run -H 'Content-Type: application/json' \
+  -d '{"message":"인프라 보안 점검하고 위협 대응","auto":true,"auto_approve":false}'
 
 # 인프라 발견
 curl -s -X POST http://<bastion>:9100/discover
@@ -264,10 +272,14 @@ PYTHONPATH=/opt/ccc-src:/opt/ccc-src/packages \
 
 - **Phase A (완료)** — HarnessSpec + 수동 md + 6단계 오케스트레이터 + 기본 SOC 페르소나.
 - **Phase B (완료)** — 인프라 Discovery + 타깃 해석(el34 하드코딩 제거, 범용화).
-- **Phase C (예정)** — Experience Graph 기반 **페르소나/하네스 자동 생성**(discovery + 경험 →
-  결정론 초안 → 매니저 LLM 정제). 승격된 playbook 을 태스크에 바인딩.
+- **Phase C (완료)** — `harness_gen.py`: discovery(present 자산역할) + Experience(get_context) →
+  **하네스 자동 생성**(페르소나 선택·모델티어·SOC 라이프사이클 DAG·verify 게이트, 결정론).
+  인프라에 적응(예: 모델 자산 없으면 ai-security-analyst 자동 제외). 감사 아티팩트
+  (`harness/generated/<id>/00_team_table.md`·`01_phase_matrix.md`·`03_model_rationale.md`·
+  `batches.json`·`spec.json`) 생성. (옵션 `bind_playbooks` 로 승격 playbook 바인딩.)
 - **Phase D (예정)** — 검증 품질 강화(`verify.py`/`lab_verify`) + `compaction` 피드백으로
-  페르소나 `quality_self_check`/`known_pitfalls` 갱신, `success_rate` 기반 티어/선택 조정.
+  페르소나 `quality_self_check`/`known_pitfalls` 갱신, `success_rate` 기반 티어/선택 조정 +
+  매니저 LLM 정제(harness_gen).
 
 ---
 

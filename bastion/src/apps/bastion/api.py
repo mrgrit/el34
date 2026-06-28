@@ -1231,10 +1231,15 @@ def infra_map():
 class HarnessRunRequest(BaseModel):
     message: str
     harness_id: str = ""        # 비우면 트리거 자동 매칭
+    auto: bool = False          # True: discovery+경험으로 하네스 자동 생성(Phase C)
     auto_approve: bool = True
     approval_mode: str = "normal"
     course: str = ""
     stream: bool = True
+
+
+def _is_auto(req) -> bool:
+    return bool(getattr(req, "auto", False)) or req.harness_id in ("auto", "soc-auto")
 
 
 @app.get("/harness/list")
@@ -1264,11 +1269,21 @@ def personas():
 
 @app.post("/harness/generate")
 def harness_generate(req: HarnessRunRequest):
-    """dry-run — 하네스 spec 로드 + 검증만(실행 없음). 자동매칭 가능."""
+    """dry-run — 하네스 spec 생성/로드 + 검증만(실행 없음).
+    auto=True → discovery+경험 기반 자동 생성(Phase C). 아니면 수동 md 로드/자동매칭."""
     try:
         from bastion.harness import load_harness, validate_spec
     except Exception as e:
         return {"error": f"import: {e}"}
+    if _is_auto(req):
+        try:
+            from bastion.harness_gen import generate_harness
+            spec = generate_harness(req.message, agent)
+        except Exception as e:
+            return {"error": f"auto-generate: {e}"}
+        errs = validate_spec(spec)
+        return {"harness_id": spec.harness_id, "source": "auto", "valid": not errs,
+                "errors": errs, "spec": spec.to_dict()}
     hid = req.harness_id or (agent._should_use_harness(req.message) or "")
     if not hid:
         return {"error": "no harness matched", "message": req.message}
@@ -1277,7 +1292,8 @@ def harness_generate(req: HarnessRunRequest):
     except Exception as e:
         return {"error": f"load {hid}: {e}"}
     errs = validate_spec(spec)
-    return {"harness_id": hid, "valid": not errs, "errors": errs, "spec": spec.to_dict()}
+    return {"harness_id": hid, "source": "manual", "valid": not errs,
+            "errors": errs, "spec": spec.to_dict()}
 
 
 @app.post("/harness/run")
@@ -1298,20 +1314,34 @@ def harness_run(req: HarnessRunRequest):
             agent.model = target_model
             agent.attack_mode = is_attack
             try:
-                hid = req.harness_id or (agent._should_use_harness(req.message) or "")
-                if not hid:
-                    yield json.dumps({"event": "error", "error": "no harness matched",
-                                      "message": req.message}, ensure_ascii=False) + "\n"
-                    return
-                try:
-                    spec = load_harness(hid)
-                except Exception as e:
-                    yield json.dumps({"event": "error", "error": f"load {hid}: {e}"},
+                if _is_auto(req):
+                    # Phase C: discovery+경험으로 자동 생성
+                    try:
+                        from bastion.harness_gen import generate_harness
+                        spec = generate_harness(req.message, agent)
+                    except Exception as e:
+                        yield json.dumps({"event": "error", "error": f"auto-generate: {e}"},
+                                         ensure_ascii=False) + "\n"
+                        return
+                    yield json.dumps({"event": "harness_generated", "harness_id": spec.harness_id,
+                                      "team": [p.role for p in spec.team],
+                                      "present_roles": spec.meta.get("present_roles")},
                                      ensure_ascii=False) + "\n"
-                    return
+                else:
+                    hid = req.harness_id or (agent._should_use_harness(req.message) or "")
+                    if not hid:
+                        yield json.dumps({"event": "error", "error": "no harness matched",
+                                          "message": req.message}, ensure_ascii=False) + "\n"
+                        return
+                    try:
+                        spec = load_harness(hid)
+                    except Exception as e:
+                        yield json.dumps({"event": "error", "error": f"load {hid}: {e}"},
+                                         ensure_ascii=False) + "\n"
+                        return
                 errs = validate_spec(spec)
                 if errs:
-                    yield json.dumps({"event": "harness_invalid", "harness_id": hid,
+                    yield json.dumps({"event": "harness_invalid", "harness_id": spec.harness_id,
                                       "errors": errs}, ensure_ascii=False) + "\n"
                     return
                 if target_model != original:
