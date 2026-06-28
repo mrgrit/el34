@@ -9,6 +9,7 @@ import re
 from typing import Any
 
 from bastion import run_command, health_check, INTERNAL_IPS
+from bastion.targets import container_for  # 역할→컨테이너 (discovery 우선, el34 정적 폴백)
 
 
 # ── Skill 카테고리 — system prompt 에서 그룹핑에 사용 ──────────────
@@ -542,7 +543,7 @@ def execute_skill(name: str, params: dict[str, Any], vm_ips: dict[str, str],
         # bastion 의 docker daemon 통해 attacker 컨테이너 안에서 nmap 실행
         nmap_cmd = f"nmap -sV {ip} {ports} --max-retries 1 -T4 --host-timeout 30s"
         r = run_command(bastion_ip,
-            f"docker exec el34-attacker sh -c \"{nmap_cmd} -oG - 2>/dev/null | grep 'Ports:' || "
+            f"docker exec {container_for('attacker')} sh -c \"{nmap_cmd} -oG - 2>/dev/null | grep 'Ports:' || "
             f"{nmap_cmd} 2>/dev/null | grep -E '^[0-9]+/tcp'\"",
             timeout=45)
         raw = r.get("stdout", "")
@@ -560,14 +561,14 @@ def execute_skill(name: str, params: dict[str, Any], vm_ips: dict[str, str],
 
     elif name == "check_suricata":
         # ★ fix-J (2026-05-18): docker exec wrapping — secu(10.20.30.x) placeholder 대신
-        #   docker exec el34-ips 호출 (bastion 의 docker socket 통해).
+        #   docker exec <ids 컨테이너> 호출 (bastion 의 docker socket 통해).
         lines = params.get("lines", 10)
         ip = vm_ips.get("bastion") or "127.0.0.1"
         script = (
             f"echo '=== Suricata Process ===' && "
-            f"docker exec el34-ips pgrep -af suricata 2>/dev/null | head -3 && "
+            f"docker exec {container_for('ids')} pgrep -af suricata 2>/dev/null | head -3 && "
             f"echo '=== Recent Alerts ===' && "
-            f"docker exec el34-ips sh -c \"grep -E 'event_type.:.alert' /var/log/suricata/eve.json 2>/dev/null | tail -{lines}\" "
+            f"docker exec {container_for('ids')} sh -c \"grep -E 'event_type.:.alert' /var/log/suricata/eve.json 2>/dev/null | tail -{lines}\" "
         )
         r = run_command(ip, script, timeout=20)
         return {"success": True, "output": r.get("stdout", "") or r.get("output", "")}
@@ -576,13 +577,14 @@ def execute_skill(name: str, params: dict[str, Any], vm_ips: dict[str, str],
         # ★ fix-J (2026-05-18): docker exec wrapping — siem(10.20.30.100) placeholder 대신
         #   docker exec el34-siem.
         ip = vm_ips.get("bastion") or "127.0.0.1"
+        c = container_for("siem")
         script = (
             "echo '=== Wazuh Daemons ===' && "
-            "docker exec el34-siem /var/ossec/bin/wazuh-control status 2>/dev/null | head -8 && "
+            f"docker exec {c} /var/ossec/bin/wazuh-control status 2>/dev/null | head -8 && "
             "echo '=== Agents ===' && "
-            "docker exec el34-siem /var/ossec/bin/agent_control -lc 2>/dev/null && "
+            f"docker exec {c} /var/ossec/bin/agent_control -lc 2>/dev/null && "
             "echo '=== Recent Alerts (alerts.log) ===' && "
-            "docker exec el34-siem tail -10 /var/ossec/logs/alerts/alerts.log 2>/dev/null"
+            f"docker exec {c} tail -10 /var/ossec/logs/alerts/alerts.log 2>/dev/null"
         )
         r = run_command(ip, script, timeout=20)
         return {"success": True, "output": r.get("stdout", "") or r.get("output", "")}
@@ -652,7 +654,7 @@ def execute_skill(name: str, params: dict[str, Any], vm_ips: dict[str, str],
         lines = params.get("lines", 10)
         ip = vm_ips.get("bastion") or "127.0.0.1"  # bastion 의 docker daemon
         script = (
-            f"docker exec el34-web sh -c \""
+            f"docker exec {container_for('web')} sh -c \""
             f"echo '=== ModSecurity Status ===' && "
             f"apachectl -M 2>/dev/null | grep -i security2 && "
             f"echo '=== Config SecRuleEngine ===' && "
@@ -754,7 +756,7 @@ def execute_skill(name: str, params: dict[str, Any], vm_ips: dict[str, str],
         else:
             return {"success": False, "error": f"Unknown action: {action}"}
         # el34 방화벽 nft 는 el34-fw 컨테이너 내부 → bastion 의 docker 로 컨테이너 안에서 실행.
-        fw_cmd = f'docker exec el34-fw sh -c "{cmd}"'
+        fw_cmd = f'docker exec {container_for("fw")} sh -c "{cmd}"'
         r = run_command(ip, fw_cmd, timeout=15)
         output = r.get("stdout", "") or ""
         stderr = r.get("stderr", "") or ""

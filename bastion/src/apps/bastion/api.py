@@ -239,6 +239,18 @@ def _on_startup():
         print(f"[startup] Asset auto-register block failed: {e}",
               file=__import__("sys").stderr, flush=True)
 
+    # Phase B: 인프라 자동 발견(docker 기반) — 역할→컨테이너 매핑 + 자산 등록.
+    # best-effort: 실패해도 기존 동작 무영향(targets 정적 el34 폴백). BASTION_DISCOVERY=1 시
+    # 발견 매핑을 스킬 실행에 사용. 미설정이면 발견은 하되 적용은 정적 폴백.
+    try:
+        from bastion.discovery import discover_infra
+        d = discover_infra(agent.vm_ips)
+        print(f"[startup] discovery: {d['count']} containers, role_map={d['role_map']}",
+              file=__import__("sys").stderr, flush=True)
+    except Exception as e:
+        print(f"[startup] discovery skipped: {e}",
+              file=__import__("sys").stderr, flush=True)
+
 
 # ── 스키마 ──────────────────────────────────────────────────────────────────
 
@@ -1190,6 +1202,29 @@ def chat(req: ChatRequest):
                 agent.attack_mode = original_attack
                 agent._test_meta = {}
         return {"events": events}
+
+
+# ── Discovery (인프라 자동 발견, Phase B) ──────────────────────────────────
+@app.post("/discover")
+def discover():
+    """docker 인프라를 다시 스캔 → 역할→컨테이너 매핑 + 자산 등록. 결과 반환."""
+    try:
+        from bastion.discovery import discover_infra
+        return discover_infra(agent.vm_ips)
+    except Exception as e:
+        return {"error": str(e), "containers": [], "role_map": {}}
+
+
+@app.get("/infra-map")
+def infra_map():
+    """현재 발견된 역할→컨테이너 매핑 + discovery 활성 여부."""
+    import os as _os
+    try:
+        from bastion.discovery import discovered_map
+        return {"discovery_enabled": _os.getenv("BASTION_DISCOVERY", "0") == "1",
+                "role_map": discovered_map()}
+    except Exception as e:
+        return {"error": str(e), "role_map": {}}
 
 
 # ── Harness (다중 페르소나 팀) ─────────────────────────────────────────────
