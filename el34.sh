@@ -16,8 +16,8 @@ REAL_USER="${SUDO_USER:-$(id -un)}"             # sudo 로 재실행돼도 원�
 # ───────────────────────────────────────────────── helpers
 ensure_env() {
     [ -f .env ] || { cp .env.example .env; echo "[el34] .env 생성(.env.example 복사) — LLM_BASE_URL 등 값 확인 권장"; }
-    grep -q '^LLM_MANAGER_MODEL='  .env || echo 'LLM_MANAGER_MODEL=gemma3:4b'  >> .env
-    grep -q '^LLM_SUBAGENT_MODEL=' .env || echo 'LLM_SUBAGENT_MODEL=gemma3:4b' >> .env
+    grep -q '^LLM_MANAGER_MODEL='  .env || echo 'LLM_MANAGER_MODEL=gpt-oss:120b' >> .env
+    grep -q '^LLM_SUBAGENT_MODEL=' .env || echo 'LLM_SUBAGENT_MODEL=qwen3:8b'   >> .env
 }
 
 ensure_ssh_keys() {
