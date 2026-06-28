@@ -1192,6 +1192,107 @@ def chat(req: ChatRequest):
         return {"events": events}
 
 
+# ── Harness (다중 페르소나 팀) ─────────────────────────────────────────────
+class HarnessRunRequest(BaseModel):
+    message: str
+    harness_id: str = ""        # 비우면 트리거 자동 매칭
+    auto_approve: bool = True
+    approval_mode: str = "normal"
+    course: str = ""
+    stream: bool = True
+
+
+@app.get("/harness/list")
+def harness_list():
+    """사용 가능한 하네스(.bastion/skills/*) 목록."""
+    try:
+        from bastion.harness import list_harnesses
+        return {"harnesses": list_harnesses()}
+    except Exception as e:
+        return {"harnesses": [], "error": str(e)}
+
+
+@app.get("/personas")
+def personas():
+    """기본 SOC 페르소나 라이브러리(.bastion/agents/*)."""
+    try:
+        from bastion.harness import load_personas, resolve_model
+        ps = load_personas()
+        return {"personas": [
+            {"role": p.role, "model_tier": p.model_tier,
+             "model": resolve_model(p.model_tier),
+             "allowed_skills": p.allowed_skills, "can_write": p.can_write,
+             "description": p.description} for p in ps.values()]}
+    except Exception as e:
+        return {"personas": [], "error": str(e)}
+
+
+@app.post("/harness/generate")
+def harness_generate(req: HarnessRunRequest):
+    """dry-run — 하네스 spec 로드 + 검증만(실행 없음). 자동매칭 가능."""
+    try:
+        from bastion.harness import load_harness, validate_spec
+    except Exception as e:
+        return {"error": f"import: {e}"}
+    hid = req.harness_id or (agent._should_use_harness(req.message) or "")
+    if not hid:
+        return {"error": "no harness matched", "message": req.message}
+    try:
+        spec = load_harness(hid)
+    except Exception as e:
+        return {"error": f"load {hid}: {e}"}
+    errs = validate_spec(spec)
+    return {"harness_id": hid, "valid": not errs, "errors": errs, "spec": spec.to_dict()}
+
+
+@app.post("/harness/run")
+def harness_run(req: HarnessRunRequest):
+    """하네스 6단계 팀 실행 — NDJSON 스트림. harness_id 비우면 트리거 자동매칭."""
+    def approval_callback(step_name: str, skill: str, params: dict) -> bool:
+        return req.auto_approve
+    agent.approval_mode = (req.approval_mode or "normal").lower()
+    target_model = _resolve_manager_model(req.course)
+    is_attack = req.course in ATTACK_COURSES
+
+    def gen():
+        from bastion.harness import load_harness, validate_spec
+        from bastion import orchestrator as _orch
+        with _model_swap_lock:
+            original = agent.model
+            original_attack = getattr(agent, "attack_mode", False)
+            agent.model = target_model
+            agent.attack_mode = is_attack
+            try:
+                hid = req.harness_id or (agent._should_use_harness(req.message) or "")
+                if not hid:
+                    yield json.dumps({"event": "error", "error": "no harness matched",
+                                      "message": req.message}, ensure_ascii=False) + "\n"
+                    return
+                try:
+                    spec = load_harness(hid)
+                except Exception as e:
+                    yield json.dumps({"event": "error", "error": f"load {hid}: {e}"},
+                                     ensure_ascii=False) + "\n"
+                    return
+                errs = validate_spec(spec)
+                if errs:
+                    yield json.dumps({"event": "harness_invalid", "harness_id": hid,
+                                      "errors": errs}, ensure_ascii=False) + "\n"
+                    return
+                if target_model != original:
+                    yield json.dumps({"event": "model_routing", "course": req.course,
+                                      "model": target_model}, ensure_ascii=False) + "\n"
+                for evt in _orch.run_harness(spec, req.message, agent, approval_callback):
+                    yield json.dumps(evt, ensure_ascii=False) + "\n"
+            finally:
+                agent.model = original
+                agent.attack_mode = original_attack
+
+    if req.stream:
+        return StreamingResponse(gen(), media_type="application/x-ndjson")
+    return {"events": [json.loads(l) for l in gen() if l.strip()]}
+
+
 class AskRequest(BaseModel):
     message: str
     auto_approve: bool = True  # /ask는 기본 자동승인 (실습용)

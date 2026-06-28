@@ -887,9 +887,65 @@ class BastionAgent:
             return False, "skill 호출 자체가 없었음 (planning 단계에서 종료)"
         return False, "모든 skill 시도가 실패"
 
+    def _should_use_harness(self, message: str) -> str | None:
+        """메시지가 등록된 하네스(SKILL.md) 트리거에 맞으면 harness_id 반환.
+        다중 페르소나 팀 작업으로 라우팅한다. 매칭 없으면 None(기존 단일 경로 유지)."""
+        if os.getenv("BASTION_HARNESS_AUTO", "1") == "0":
+            return None
+        try:
+            from bastion.harness import list_harnesses
+        except Exception:
+            return None
+        low = (message or "").lower()
+        best: str | None = None
+        for h in list_harnesses():
+            for trg in (h.get("triggers") or []):
+                t = str(trg).strip().lower()
+                if t and t in low:
+                    return h["harness_id"]
+            # 하네스 id/name 직접 지칭 + 팀/하네스 키워드
+            if (h["harness_id"].lower() in low or str(h.get("name", "")).lower() in low) \
+               and any(k in low for k in ("팀으로", "하네스", "harness", "team")):
+                best = h["harness_id"]
+        return best
+
+    def _run_harness(self, harness_id: str, message: str,
+                     approval_callback=None) -> Generator[dict, None, None]:
+        """하네스 로드 → 검증 → orchestrator 6단계 실행."""
+        try:
+            from bastion import harness as _h
+            from bastion import orchestrator as _orch
+        except Exception as e:
+            yield {"event": "error", "stage": "harness", "error": f"import: {e}"}
+            return
+        try:
+            spec = _h.load_harness(harness_id)
+        except Exception as e:
+            yield {"event": "error", "stage": "harness", "error": f"load {harness_id}: {e}"}
+            return
+        errs = _h.validate_spec(spec)
+        if errs:
+            yield {"event": "harness_invalid", "harness_id": harness_id, "errors": errs}
+            return
+        analysis_parts: list[str] = []
+        for evt in _orch.run_harness(spec, message, self, approval_callback):
+            yield evt
+            if evt.get("event") == "harness_done":
+                analysis_parts.append(evt.get("report", ""))
+        if analysis_parts:
+            self.history.append({"role": "assistant", "content": analysis_parts[-1][:4000]})
+
     def _chat_once(self, message: str, approval_callback=None) -> Generator[dict, None, None]:
         """원래의 chat 본체 — 1회 시도. step retry 는 chat() 가 감싼다."""
         if not message:
+            return
+
+        # ══ Harness 팀 디스패치 (다중 페르소나) — 트리거 매칭 시에만, 아니면 기존 경로 ══
+        _hid = self._should_use_harness(message)
+        if _hid:
+            yield {"event": "harness_route", "harness_id": _hid}
+            self.history.append({"role": "user", "content": message})
+            yield from self._run_harness(_hid, message, approval_callback)
             return
 
         # ══ Multi-task 분할 ─ "1) ... 2) ... 3) ..." 형식은 각 서브태스크를

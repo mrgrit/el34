@@ -51,6 +51,8 @@ NODE_TYPES = {
     "Mission", "Vision", "Goal", "Strategy", "KPI",
     # Work domain — Tactical
     "Plan", "Todo",
+    # Harness engineering — 다중 페르소나 팀 하네스
+    "Persona", "Harness",
 }
 EDGE_TYPES = {
     # 기존 (operational + KG-4 결정)
@@ -67,6 +69,8 @@ EDGE_TYPES = {
     # Work hierarchy
     "realizes", "measures", "contributes_to", "blocks",
     "owned_by", "scheduled_for", "derives_from",
+    # Harness engineering — 페르소나↔하네스↔전문영역
+    "specializes_in", "member_of",
 }
 
 
