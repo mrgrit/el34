@@ -40,7 +40,8 @@ bastion/src/
 │   ├── targets.py        # 역할→컨테이너 해석 (discovery 우선, el34 정적 폴백)  [Phase B]
 │   ├── discovery.py      # docker 인프라 자동 발견 + 역할 추론 + 자산 등록        [Phase B]
 │   ├── harness_gen.py    # discovery+경험 → 하네스 자동 생성 + 감사 아티팩트       [Phase C]
-│   └── tests/test_harness.py, test_discovery.py, test_harness_gen.py
+│   ├── feedback.py       # 실행 성과 누적(KG) → 티어 조정·교훈 주입(자기개선)        [Phase D]
+│   └── tests/test_harness.py, test_discovery.py, test_harness_gen.py, test_feedback.py
 └── harness/
     ├── generated/<id>/   # 자동 생성 spec + 팀/매트릭스/모델근거/batches (감사용) [Phase C]
     ├── BASTION.md                         # 전역 SOC 규칙 (모든 하네스에 주입)
@@ -277,9 +278,12 @@ PYTHONPATH=/opt/ccc-src:/opt/ccc-src/packages \
   인프라에 적응(예: 모델 자산 없으면 ai-security-analyst 자동 제외). 감사 아티팩트
   (`harness/generated/<id>/00_team_table.md`·`01_phase_matrix.md`·`03_model_rationale.md`·
   `batches.json`·`spec.json`) 생성. (옵션 `bind_playbooks` 로 승격 playbook 바인딩.)
-- **Phase D (예정)** — 검증 품질 강화(`verify.py`/`lab_verify`) + `compaction` 피드백으로
-  페르소나 `quality_self_check`/`known_pitfalls` 갱신, `success_rate` 기반 티어/선택 조정 +
-  매니저 LLM 정제(harness_gen).
+- **Phase D (완료)** — `feedback.py`: 실행 결과를 KG Persona meta(runs/success_rate/pitfalls)에
+  누적하는 **자기개선 루프**. 다음 자동 생성 시 `apply_feedback` 로 (1) 과거 실패 교훈을 페르소나
+  `quality_self_check` 에 주입, (2) success_rate 기반 모델 티어 조정(검증된 읽기전용 reasoning→
+  execution 경량화 / 저성과 execution→reasoning + verify 강제). orchestrator 가 verify 강화
+  (빈 산출물 objective fail) + 옵션 매니저 LLM 정제(`BASTION_HARNESS_LLM_REFINE`).
+  `GET /personas` 가 성과(stats) 노출.
 
 ---
 

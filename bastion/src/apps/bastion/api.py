@@ -1257,12 +1257,17 @@ def personas():
     """기본 SOC 페르소나 라이브러리(.bastion/agents/*)."""
     try:
         from bastion.harness import load_personas, resolve_model
+        try:
+            from bastion.feedback import persona_stats
+        except Exception:
+            persona_stats = lambda r: {}
         ps = load_personas()
         return {"personas": [
             {"role": p.role, "model_tier": p.model_tier,
              "model": resolve_model(p.model_tier),
              "allowed_skills": p.allowed_skills, "can_write": p.can_write,
-             "description": p.description} for p in ps.values()]}
+             "description": p.description, "stats": persona_stats(p.role)}
+            for p in ps.values()]}
     except Exception as e:
         return {"personas": [], "error": str(e)}
 

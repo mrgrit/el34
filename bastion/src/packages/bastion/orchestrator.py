@@ -235,6 +235,9 @@ def run_verifier(agent, verifier: Persona, task: Task, produced: str,
     # 테스트 훅: 강제 실패
     if os.getenv("BASTION_HARNESS_FORCE_FAIL", "") == task.task_id:
         return {"passed": False, "reason": "forced-fail (test hook)"}
+    # objective 검증(Phase D): 산출물이 비었거나 너무 짧으면 LLM 판정 전에 즉시 실패.
+    if len((produced or "").strip()) < 30:
+        return {"passed": False, "reason": "산출물이 비었거나 너무 짧음(objective)"}
     crit = "\n".join(f"- {c}" for c in (task.verify.criteria or []))
     model = resolve_model(verifier.model_tier) or agent.model
     sys = (verifier.system_prompt()
@@ -411,6 +414,18 @@ def run_harness(spec: HarnessSpec, request: str, agent,
         )
     except Exception as e:
         yield {"event": "kg_warn", "error": str(e)[:160]}
+
+    # 페르소나 피드백 기록 (Phase D) — 태스크별 성과를 KG Persona meta 에 누적.
+    # 다음 harness_gen 이 success_rate/pitfalls 로 티어 조정·교훈 주입.
+    try:
+        from bastion.feedback import record_persona_outcome
+        for t in all_tasks:
+            ok = (t.status == "done")
+            reason = "" if ok else f"{t.task_id} {t.status} (attempts={t.attempts})"
+            record_persona_outcome(t.persona, ok, reason=reason,
+                                   source=f"harness:{spec.harness_id}")
+    except Exception as e:
+        yield {"event": "kg_warn", "error": f"feedback: {str(e)[:120]}"}
 
     yield {"event": "harness_done", "harness_id": spec.harness_id, "run_id": run_id,
            "report": report, "report_path": write_path,

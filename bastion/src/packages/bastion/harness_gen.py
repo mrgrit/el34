@@ -91,6 +91,14 @@ def generate_harness(request: str, agent, harness_id: str = "soc-auto",
         if must in personas_all:
             selected.setdefault(must, personas_all[must])
 
+    # Phase D: 과거 성과/교훈 피드백 반영(모델 티어 조정 + 실패 교훈 주입)
+    try:
+        from bastion.feedback import apply_feedback
+        for r in list(selected):
+            selected[r] = apply_feedback(selected[r])
+    except Exception:
+        pass
+
     has = lambda r: r in selected  # noqa: E731
 
     # ── 2) SOC 라이프사이클 DAG (선택 페르소나로 파라미터화) ───────────────
@@ -182,6 +190,17 @@ def generate_harness(request: str, agent, harness_id: str = "soc-auto",
                          instruction="모든 산출물을 P0/P1/P2 우선순위로 통합 보고한다."))
     phases.append(p4)
 
+    # Phase D: 저성과(force_verify) 페르소나 태스크에 verify 게이트 강제(검증자 soc-lead)
+    for ph in phases:
+        for t in ph.tasks:
+            p = selected.get(t.persona)
+            if (p and (p.meta or {}).get("force_verify")
+                    and t.persona != "soc-lead"
+                    and not (t.verify and t.verify.enabled)):
+                t.verify = Verify(enabled=True,
+                                  criteria=_VERIFY_CRITERIA.get(t.task_id, ["산출물이 검증 기준을 충족하는가"]),
+                                  max_retries=2, verifier_persona="soc-lead")
+
     # ── 3) 경험 보강 (로컬, LLM 불필요) ──────────────────────────────────
     rules: list[str] = []
     try:
@@ -216,6 +235,13 @@ def generate_harness(request: str, agent, harness_id: str = "soc-auto",
         triggers=[], meta={"present_roles": sorted(present), "request": request},
     )
 
+    # Phase D (옵션): 매니저 LLM 정제 — instruction/criteria 개선(구조 불변, fallback).
+    if os.getenv("BASTION_HARNESS_LLM_REFINE", "0") == "1":
+        try:
+            _llm_refine(spec, agent)
+        except Exception:
+            pass
+
     # ── 4) 검증 + 영속화 + 아티팩트 ──────────────────────────────────────
     errs = validate_spec(spec)
     spec.meta["validation_errors"] = errs
@@ -229,6 +255,43 @@ def generate_harness(request: str, agent, harness_id: str = "soc-auto",
         except Exception:
             pass
     return spec
+
+
+# ── (옵션) 매니저 LLM 정제 — 구조 불변, instruction/criteria 만 개선 ─────────
+def _llm_refine(spec: HarnessSpec, agent) -> None:
+    import httpx
+    tasks = spec.all_tasks()
+    brief = [{"task_id": t.task_id, "persona": t.persona, "name": t.name,
+              "instruction": t.instruction,
+              "criteria": (t.verify.criteria if (t.verify and t.verify.enabled) else [])}
+             for t in tasks]
+    sys = ("너는 SOC 하네스 설계자다. 아래 태스크들의 instruction 과 verify criteria 를 더 "
+           "구체적·실행가능하게 다듬어라. 태스크 추가/삭제/구조 변경 금지. JSON 만 출력: "
+           "{\"<task_id>\": {\"instruction\": \"...\", \"criteria\": [\"...\"]}}")
+    user = (f"요청: {spec.meta.get('request','')}\n\n태스크:\n"
+            f"{json.dumps(brief, ensure_ascii=False)}\n\nJSON:")
+    model = resolve_model("reasoning") or getattr(agent, "model", "")
+    r = httpx.post(f"{agent.ollama_url}/api/chat", json={
+        "model": model,
+        "messages": [{"role": "system", "content": sys},
+                     {"role": "user", "content": user}],
+        "stream": False, "options": {"temperature": 0.2, "num_predict": 1500}},
+        timeout=120.0)
+    text = ((r.json() or {}).get("message", {}) or {}).get("content", "") or ""
+    s = text[text.find("{"): text.rfind("}") + 1] if "{" in text and "}" in text else ""
+    data = json.loads(s) if s else {}
+    by_id = {t.task_id: t for t in tasks}
+    if isinstance(data, dict):
+        for tid, upd in data.items():
+            t = by_id.get(tid)
+            if not t or not isinstance(upd, dict):
+                continue
+            if upd.get("instruction"):
+                t.instruction = str(upd["instruction"])[:800]
+            if (t.verify and t.verify.enabled and isinstance(upd.get("criteria"), list)
+                    and upd["criteria"]):
+                t.verify.criteria = [str(c)[:200] for c in upd["criteria"]][:5]
+    spec.meta["llm_refined"] = True
 
 
 # ── 감사 아티팩트 (책 팀 문서 형식) ─────────────────────────────────────────
