@@ -72,49 +72,62 @@
 
 ### S3. 취약점·자산 점검
 - **목표**: 노출 서비스·CVE 식별, 우선순위화 (읽기 전용)
-- **권장**: B 자동(취약점 페르소나 포함) 또는 S10 커스텀 `vuln-assessment-team`
-- **핵심 페르소나**: vuln-asset-manager (+soc-triage, soc-lead)
-- **실행(자동)**
-  ```bash
-  curl -sN -X POST http://<B>/harness/run -H 'Content-Type: application/json' \
-    -d '{"message":"전체 노출 서비스·CVE 점검하고 우선순위 보고","auto":true,"auto_approve":false}'
-  ```
-- **팁**: 반복한다면 S10 으로 `vuln-assessment-team` SKILL.md 를 만들어 고정.
-
-### S4. 컴플라이언스 감사
-- **목표**: CIS/시크릿 미준수 점검 (읽기 전용)
-- **권장**: B 자동(compliance-auditor 포함) 또는 커스텀
+- **권장**: A 전용 하네스 **`vuln-assessment-team`** (범위→취약점·컴플라 병렬→보고) / 또는 `auto`
+- **팀**: soc-triage-analyst → (vuln-asset-manager, compliance-auditor) → soc-lead
 - **실행**
   ```bash
   curl -sN -X POST http://<B>/harness/run -H 'Content-Type: application/json' \
-    -d '{"message":"보안 기준 준수·시크릿 노출 감사","auto":true,"auto_approve":false}'
+    -d '{"harness_id":"vuln-assessment-team","message":"전체 노출 서비스·CVE 점검하고 우선순위 보고","auto_approve":false}'
   ```
+- **트리거**: `취약점 평가`·`노출 점검`·`자산 점검` (auto 매칭도 가능)
+
+### S4. 컴플라이언스 감사
+- **목표**: CIS/시크릿/감사로그 미준수 점검 (읽기 전용)
+- **권장**: A 전용 하네스 **`compliance-audit-team`** (범위→CIS·시크릿 / 감사로그 병렬→보고) / 또는 `auto`
+- **팀**: soc-triage-analyst → (compliance-auditor, siem-log-analyst) → soc-lead
+- **실행**
+  ```bash
+  curl -sN -X POST http://<B>/harness/run -H 'Content-Type: application/json' \
+    -d '{"harness_id":"compliance-audit-team","message":"보안 기준 준수·시크릿 노출 감사","auto_approve":false}'
+  ```
+- **트리거**: `컴플라이언스 감사`·`보안 기준 점검`·`CIS 점검`
 
 ### S5. AI/모델 보안 점검 (Ollama 등 모델 자산 있을 때)
 - **목표**: 프롬프트 인젝션·jailbreak·RAG 무결성·모델 격리
-- **권장**: B 자동 — **모델 자산(ai-model)이 discovery 에 잡혀야 ai-security-analyst 가 포함**됨
-  (el34 처럼 LLM 이 외부면 자동 제외 → 의도된 동작)
-- **전제**: 모델이 컨테이너로 떠 있으면 `POST /discover` 후 `GET /infra-map` 에 `ai-model` 확인
+- **권장**: A 전용 하네스 **`ai-security-team`** (범위→적대평가→격리(검증)→보고) / 또는 `auto`
+- **팀**: soc-triage-analyst → ai-security-analyst(평가) → ai-security-analyst(격리, verify) → soc-lead
+- **전제**: 모델이 컨테이너로 떠 있어야 의미. `POST /discover` 후 `GET /infra-map` 에 `ai-model` 확인.
+  (`auto` 는 모델 자산 없으면 ai-security-analyst 자동 제외 — el34 처럼 LLM 이 외부면 의도된 동작)
 - **실행**
   ```bash
   curl -s -X POST http://<B>/discover            # 모델 자산 발견 확인
   curl -sN -X POST http://<B>/harness/run -H 'Content-Type: application/json' \
-    -d '{"message":"LLM 서비스 프롬프트 인젝션·RAG 무결성 점검","auto":true,"auto_approve":false}'
+    -d '{"harness_id":"ai-security-team","message":"LLM 서비스 프롬프트 인젝션·RAG 무결성 점검","auto_approve":false}'
   ```
+- **트리거**: `AI 보안`·`LLM 보안`·`프롬프트 인젝션`·`RAG 무결성`
 
 ### S6. 퍼플팀 — 탐지/차단 검증
 - **목표**: 배포된 탐지/차단이 실제 작동하는지 통제 공격으로 검증
-- **권장**: B 자동 — **attacker 자산 있으면 red-team-operator 가 퍼플 단계(P3)로 포함**
-- **주의**: 공격 모의 → `approval_mode` 와 승인 필수. 통제된 실습망에서만.
+- **권장**: A 전용 하네스 **`purple-team-validation`** (범위→탐지배포(검증)→통제공격(검증)→갭보고)
+- **팀**: soc-triage-analyst → detection-engineer(verify) → red-team-operator(verify) → soc-lead
+- **주의**: 공격 모의 → 통제망 + 승인 필수. attack 티어 라우팅(`course`).
   ```bash
   curl -sN -X POST http://<B>/harness/run -H 'Content-Type: application/json' \
-    -d '{"message":"탐지 룰 배포하고 퍼플팀으로 우회 검증","auto":true,"auto_approve":true,"course":"attack-ai"}'
+    -d '{"harness_id":"purple-team-validation","message":"탐지 룰 배포하고 퍼플팀으로 우회 검증","auto_approve":true,"course":"attack-ai"}'
   ```
+- **트리거**: `퍼플팀`·`탐지 검증`·`탐지 우회 검증`
 
 ### S7. 신규/미지 인프라 온보딩 (범용 showcase)
-- **목표**: 처음 보는 환경을 파악하고 그 인프라에 맞는 SOC 팀을 자동 구성
-- **권장**: B 자동 + discovery 활성
+- **목표**: 처음 보는 환경을 파악하고 베이스라인 점검 + 인프라 맞춤 팀 자동 구성
+- **권장**: 전용 하네스 **`infra-onboarding`**(인벤토리→노출·모니터링·기준 병렬→베이스라인 보고) +
+  대응이 필요하면 `auto`(discovery 로 인프라 맞춤 팀 합성)
 - **절차**
+  ```bash
+  # 베이스라인: 전용 온보딩 하네스
+  curl -sN -X POST http://<B>/harness/run -H 'Content-Type: application/json' \
+    -d '{"harness_id":"infra-onboarding","message":"이 인프라 자산·노출·모니터링 베이스라인","auto_approve":false}'
+  ```
+- **인프라 맞춤 자동 구성(showcase) 절차**
   ```bash
   # 1) discovery 켜고(BASTION_DISCOVERY=1) 인프라 스캔
   curl -s -X POST http://<B>/discover | jq '.role_map'
@@ -130,12 +143,14 @@
 
 ### S8. 포렌식·침해 분석
 - **목표**: 증거 보존·분석·IoC 추출
-- **권장**: B 자동(forensics-malware-analyst 포함, 항상 후보) 또는 커스텀
+- **권장**: A 전용 하네스 **`forensics-investigation-team`** (범위→수집(검증)·타임라인→분석·IoC(검증)→보고)
+- **팀**: soc-triage-analyst → (forensics-malware-analyst 수집[verify], siem-log-analyst 타임라인) → forensics-malware-analyst 분석[verify] → soc-lead
   ```bash
   curl -sN -X POST http://<B>/harness/run -H 'Content-Type: application/json' \
-    -d '{"message":"의심 호스트 증거 보존하고 IoC 추출","auto":true,"auto_approve":true}'
+    -d '{"harness_id":"forensics-investigation-team","message":"의심 호스트 증거 보존하고 IoC 추출","auto_approve":true}'
   ```
-- **주의**: forensic_collect/memory_dump 는 쓰기/수집 → 승인 필요.
+- **주의**: forensic_collect/memory_dump 는 쓰기/수집 → 승인 필요. 휘발성 순서 준수.
+- **트리거**: `포렌식`·`침해 분석`·`증거 수집`·`메모리 분석`
 
 ### S9. 빠른 단건 점검 (팀 불필요)
 - **목표**: "suricata 상태만", "이 IP 포트 스캔" 같은 단발

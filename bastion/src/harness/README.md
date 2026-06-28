@@ -48,7 +48,7 @@ bastion/src/
     ├── generated/<id>/   # 자동 생성 spec + 팀/매트릭스/모델근거/batches (감사용) [Phase C]
     ├── BASTION.md                         # 전역 SOC 규칙 (모든 하네스에 주입)
     ├── .bastion/agents/*.md               # 기본 SOC 페르소나 12종 (8섹션)
-    ├── .bastion/skills/<harness>/SKILL.md # 팀 워크플로 (incident-response-team, threat-hunt-team)
+    ├── .bastion/skills/<harness>/SKILL.md # 팀 워크플로 8종 (incident/hunt/vuln/compliance/ai/purple/forensics/onboarding)
     └── workspace/<run_id>/                # 실행별 산출물(보존, gitignore)
 ```
 
@@ -166,8 +166,11 @@ phases:
 | `compliance-auditor` | execution | ✗ | compliance_scan, secret_scan |
 | `red-team-operator` (퍼플팀 검증) | attack | ✓ | attack_simulate, password_attack |
 
-기본 워크플로 2종: `incident-response-team`(트리아지→조사→봉쇄·탐지(검증)→보고),
-`threat-hunt-team`(범위→병렬 헌팅→룰화·보고).
+기본 워크플로 **8종**(`.bastion/skills/`): `incident-response-team`(트리아지→조사→봉쇄·탐지(검증)→보고),
+`threat-hunt-team`(범위→병렬 헌팅→룰화), `vuln-assessment-team`(취약점·컴플라 병렬),
+`compliance-audit-team`(CIS·시크릿/감사로그), `ai-security-team`(적대평가→격리(검증)),
+`purple-team-validation`(탐지배포→통제공격, 둘 다 검증), `forensics-investigation-team`(수집·분석 검증),
+`infra-onboarding`(인벤토리→노출·모니터링·기준 베이스라인). 상황별 사용법은 [`COOKBOOK.md`](./COOKBOOK.md).
 
 ---
 
