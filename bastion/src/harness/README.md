@@ -1,5 +1,7 @@
 # Bastion Harness Engineering
 
+> 📖 상황별 구성 레시피는 [`COOKBOOK.md`](./COOKBOOK.md) — 인시던트/헌팅/취약점/온보딩/커스텀 등.
+>
 > bastion 의 **다중 페르소나 SOC 팀 오케스트레이션**. 단일 에이전트가 스킬 하나씩 처리하던
 > 방식을, 전문 페르소나 팀이 단계(phase)별로 협업하며 검증까지 거치는 방식으로 확장한다.
 > revfactory/harness-engineering-with-cc 방법론을 bastion 의 main-subagent 구조에 맞춰 수용.
