@@ -330,7 +330,7 @@ class ExperienceLearner:
         import os, yaml
         if not playbooks_dir:
             # _resolve_playbooks_dir 재사용 — CCC/flat 양 레이아웃 자동 감지
-            from packages.bastion.playbook import PLAYBOOKS_DIR as _PD
+            from bastion.playbook import PLAYBOOKS_DIR as _PD
             playbooks_dir = _PD
         os.makedirs(playbooks_dir, exist_ok=True)
 

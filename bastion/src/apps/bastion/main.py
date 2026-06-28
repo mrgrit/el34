@@ -80,7 +80,7 @@ def get_vm_ips() -> dict[str, str]:
         pass
 
     if not vm_ips:
-        from packages.bastion import INTERNAL_IPS
+        from bastion import INTERNAL_IPS
         vm_ips = dict(INTERNAL_IPS)
 
     return vm_ips
@@ -139,8 +139,8 @@ def main():
         from rich.text import Text
         from rich import box
 
-    from packages.bastion.agent import BastionAgent, sanitize_text
-    from packages.bastion import LLM_BASE_URL, LLM_MANAGER_MODEL
+    from bastion.agent import BastionAgent, sanitize_text
+    from bastion import LLM_BASE_URL, LLM_MANAGER_MODEL
 
     args = _parse_args()
     if args.yolo:
@@ -167,7 +167,7 @@ def main():
     infra_table.add_column("IP", style="white", width=18)
     infra_table.add_column("Internal", style="dim", width=16)
 
-    from packages.bastion import INTERNAL_IPS
+    from bastion import INTERNAL_IPS
     for role, ip in vm_ips.items():
         internal = INTERNAL_IPS.get(role, "—")
         infra_table.add_row(role, ip, internal)

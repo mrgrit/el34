@@ -8,7 +8,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from packages.bastion import run_command, health_check, INTERNAL_IPS
+from bastion import run_command, health_check, INTERNAL_IPS
 
 
 # ── Skill 카테고리 — system prompt 에서 그룹핑에 사용 ──────────────
@@ -666,7 +666,9 @@ def execute_skill(name: str, params: dict[str, Any], vm_ips: dict[str, str],
 
     elif name == "configure_nftables":
         action = params.get("action", "list")
-        ip = vm_ips.get("secu", "")
+        # ★ fix (2026-06-11): el34 방화벽은 el34-fw 컨테이너 안에 nft 가 있음. 과거엔 vm_ips["secu"] 호스트에서
+        #   sudo+nft 를 직접 실행 → command-not-found. scan_ports 처럼 bastion 의 docker 로 컨테이너 내부 실행.
+        ip = vm_ips.get("bastion") or "127.0.0.1"
         family = params.get("family") or "inet"
         table = (params.get("table") or "").strip()
         chain = (params.get("chain") or "").strip()
@@ -695,11 +697,11 @@ def execute_skill(name: str, params: dict[str, Any], vm_ips: dict[str, str],
             return "'" + s.replace("'", "'\\''") + "'"
 
         if action in ("list", "list_tables"):
-            cmd = "sudo nft list tables" if action == "list_tables" else "sudo nft list ruleset"
+            cmd = "nft list tables" if action == "list_tables" else "nft list ruleset"
         elif action == "list_table":
-            cmd = f"sudo nft list table {family} {table}" if table else "sudo nft list ruleset"
+            cmd = f"nft list table {family} {table}" if table else "nft list ruleset"
         elif action == "add_table":
-            cmd = f"sudo nft add table {family} {table}"
+            cmd = f"nft add table {family} {table}"
         elif action == "add_chain":
             hook = params.get("hook")
             priority = params.get("priority", 0)
@@ -709,45 +711,51 @@ def execute_skill(name: str, params: dict[str, Any], vm_ips: dict[str, str],
                 if policy:
                     body += f"policy {policy} ; "
                 body += "}"
-                cmd = f"sudo nft add chain {family} {table} {chain} {_q(body)}"
+                cmd = f"nft add chain {family} {table} {chain} {_q(body)}"
             else:
-                cmd = f"sudo nft add chain {family} {table} {chain}"
+                cmd = f"nft add chain {family} {table} {chain}"
         elif action == "add_set":
             st = params.get("set_type") or "ipv4_addr"
             body = f"{{ type {st} ; }}"
-            cmd = f"sudo nft add set {family} {table} {set_name} {_q(body)}"
+            cmd = f"nft add set {family} {table} {set_name} {_q(body)}"
         elif action == "add_element":
             el = (params.get("element") or "").strip()
             body = f"{{ {el} }}"
-            cmd = f"sudo nft add element {family} {table} {set_name} {_q(body)}"
+            cmd = f"nft add element {family} {table} {set_name} {_q(body)}"
         elif action == "delete_element":
             el = (params.get("element") or "").strip()
             body = f"{{ {el} }}"
-            cmd = f"sudo nft delete element {family} {table} {set_name} {_q(body)}"
+            cmd = f"nft delete element {family} {table} {set_name} {_q(body)}"
         elif action == "add_rule":
             rule = (params.get("rule") or "").strip()
-            cmd = f"sudo nft add rule {family} {table} {chain} {rule}"
+            cmd = f"nft add rule {family} {table} {chain} {rule}"
         elif action == "insert_rule":
             rule = (params.get("rule") or "").strip()
-            cmd = f"sudo nft insert rule {family} {table} {chain} {rule}"
+            cmd = f"nft insert rule {family} {table} {chain} {rule}"
         elif action == "delete_table":
-            cmd = f"sudo nft delete table {family} {table}"
+            cmd = f"nft delete table {family} {table}"
         elif action == "delete_chain":
-            cmd = f"sudo nft delete chain {family} {table} {chain}"
+            cmd = f"nft delete chain {family} {table} {chain}"
         elif action == "add":
             rule = (params.get("rule") or "").strip()
-            cmd = f"sudo nft add rule {family} filter input {rule}"
+            cmd = f"nft add rule {family} filter input {rule}"
         elif action == "delete":
             rule = (params.get("rule") or "").strip()
-            cmd = f"sudo nft delete rule {family} filter input {rule}"
+            cmd = f"nft delete rule {family} filter input {rule}"
         elif action == "raw":
             raw = (params.get("command") or params.get("rule") or "").strip()
             if not raw:
                 return {"success": False, "output": "", "stderr": "configure_nftables(raw) requires 'command'"}
-            cmd = raw if raw.startswith(("nft ", "sudo ")) else f"sudo nft {raw}"
+            if raw.startswith("sudo "):
+                raw = raw[5:].strip()
+            if raw.startswith("docker exec"):          # agent 가 이미 docker exec 로 감싼 경우 nft 부분만 추출
+                raw = raw.split("nft", 1)[-1].strip(); raw = f"nft {raw}"
+            cmd = raw if raw.startswith("nft ") else f"nft {raw}"
         else:
             return {"success": False, "error": f"Unknown action: {action}"}
-        r = run_command(ip, cmd, timeout=15)
+        # el34 방화벽 nft 는 el34-fw 컨테이너 내부 → bastion 의 docker 로 컨테이너 안에서 실행.
+        fw_cmd = f'docker exec el34-fw sh -c "{cmd}"'
+        r = run_command(ip, fw_cmd, timeout=15)
         output = r.get("stdout", "") or ""
         stderr = r.get("stderr", "") or ""
         success = r.get("exit_code") == 0
@@ -1276,7 +1284,7 @@ def execute_skill(name: str, params: dict[str, Any], vm_ips: dict[str, str],
     # ── History agent 호출 ──────────────────────────────────────────────
     elif name == "history_anchor":
         try:
-            from packages.bastion.history import HistoryLayer
+            from bastion.history import HistoryLayer
             h = HistoryLayer()
             related = [s.strip() for s in (params.get("related_ids") or "").split(",") if s.strip()]
             aid = h.add_anchor(
@@ -1292,7 +1300,7 @@ def execute_skill(name: str, params: dict[str, Any], vm_ips: dict[str, str],
 
     elif name == "history_narrative":
         try:
-            from packages.bastion.history import HistoryLayer
+            from bastion.history import HistoryLayer
             h = HistoryLayer()
             action = params.get("action", "open")
             if action == "open":

@@ -6,7 +6,7 @@ import os
 import glob
 from typing import Generator
 
-from packages.bastion import run_command
+from bastion import run_command
 
 
 def verify_lab_step(step: dict, vm_ips: dict[str, str]) -> dict:

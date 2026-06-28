@@ -23,7 +23,7 @@ from typing import Any
 
 import httpx
 
-from packages.bastion.graph import get_graph
+from bastion.graph import get_graph
 
 
 MIN_EXPERIENCES = 5         # 압축 시도 최소 experience 수
@@ -104,7 +104,7 @@ def compact_playbook(playbook_id: str,
 
     # 3. LLM 압축
     if not ollama_url or not model:
-        from packages.bastion import LLM_BASE_URL, LLM_MANAGER_MODEL
+        from bastion import LLM_BASE_URL, LLM_MANAGER_MODEL
         ollama_url = ollama_url or LLM_BASE_URL
         model = model or LLM_MANAGER_MODEL
     prompt = _build_compaction_prompt(pb_node, experiences)
@@ -199,7 +199,7 @@ def compact_playbook(playbook_id: str,
                    content=existing_content, meta=pb_node.get("meta", {}))
         # YAML 도 갱신
         try:
-            from packages.bastion.playbook import write_playbook, load_playbook
+            from bastion.playbook import write_playbook, load_playbook
             pid = playbook_id.replace("pb-", "", 1)
             pb_yaml = load_playbook(pid)
             if pb_yaml:
@@ -214,7 +214,7 @@ def compact_playbook(playbook_id: str,
     # 6. 노이즈 표시 (delete 안 함 — audit 위해 보존, deprecated meta 만)
     # History anchor 면역 게이트 — anchor 와 매칭되거나 narrative 에 속한 experience 는 보존.
     try:
-        from packages.bastion.history import HistoryLayer, is_compaction_immune
+        from bastion.history import HistoryLayer, is_compaction_immune
         _history = HistoryLayer()
     except Exception:
         _history = None

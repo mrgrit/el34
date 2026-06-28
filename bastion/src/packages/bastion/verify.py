@@ -4,7 +4,7 @@ import json
 from typing import Any, Generator
 
 # bastion의 run_command, health_check 재사용
-from packages.bastion import run_command, health_check, INTERNAL_IPS
+from bastion import run_command, health_check, INTERNAL_IPS
 
 def _ip(role: str) -> str:
     """INTERNAL_IPS에서 역할별 IP 조회 (환경변수 기반)."""

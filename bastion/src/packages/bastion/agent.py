@@ -18,16 +18,17 @@ import json
 import os
 import re
 import sqlite3
+import sys
 import time
 import unicodedata
 from typing import Generator
 
 import httpx
 
-from packages.bastion.playbook import list_playbooks, load_playbook, run_playbook
-from packages.bastion.prompt import build_system_prompt, build_planning_prompt
-from packages.bastion.rag import build_index, format_context
-from packages.bastion.skills import SKILLS, SKILL_CATEGORIES, execute_skill, preview_skill, skills_to_ollama_tools
+from bastion.playbook import list_playbooks, load_playbook, run_playbook
+from bastion.prompt import build_system_prompt, build_planning_prompt
+from bastion.rag import build_index, format_context
+from bastion.skills import SKILLS, SKILL_CATEGORIES, execute_skill, preview_skill, skills_to_ollama_tools
 
 
 # ── 입력 정제 ──────────────────────────────────────────────────────────────
@@ -619,23 +620,24 @@ class BastionAgent:
                  knowledge_dir: str = "", evidence_db: str = "",
                  approval_mode: str = "normal"):
         self.vm_ips = vm_ips
-        from packages.bastion import LLM_BASE_URL, LLM_MANAGER_MODEL
+        from bastion import LLM_BASE_URL, LLM_MANAGER_MODEL
         self.ollama_url = (ollama_url or LLM_BASE_URL).rstrip("/")
         self.model = model or LLM_MANAGER_MODEL
         self.history: list[dict] = []
         self.session_id = f"s{int(time.time())}"
         self.evidence_db = EvidenceDB(evidence_db)
         self._test_meta: dict = {}  # 테스트 메타데이터 (course, lab_id, step_order, test_session)
+        self._eg_mode: str = "full"  # EG ablation (off|playbook|experience|full). 운영 기본 full.
         # 승인 모드: normal / danger_danger / danger_danger_danger
         self.approval_mode = approval_mode
 
         # Experience Learning Layer — 카테고리 수준 일반화 경험 학습
-        from packages.bastion.experience import ExperienceLearner
+        from bastion.experience import ExperienceLearner
         self.experience = ExperienceLearner(db_path=self.evidence_db.db_path)
 
         # History Layer (L4) — 시계열·내러티브·anchor·changelog. KG 와 동일 SQLite 공유.
         try:
-            from packages.bastion.history import HistoryLayer
+            from bastion.history import HistoryLayer
             self.history_layer = HistoryLayer()
         except Exception:
             self.history_layer = None
@@ -758,7 +760,7 @@ class BastionAgent:
         # 여기서 message 앞에 또 prepend 하면 user message 가 "긴 지시문" 처럼 보여
         # LLM 이 Q&A 로 응답하고 tool 을 안 부른다 (round 4 분석에서 발견).
         # → 사용자 message 는 원본 그대로 두고, 그래프 ID 도 원본 기준.
-        MAX_STEP_RETRY = 1
+        MAX_STEP_RETRY = 2             # 2026-05-26: 도구 실행 회피(코드 예시로 때움) 대응 — 재촉 2회
         cur_message = original
         outcome = "fail"
         try:
@@ -782,8 +784,11 @@ class BastionAgent:
                     f"[자기 수정 — 이전 시도가 부족함]\n"
                     f"사유: {fb}\n\n"
                     f"원래 요청: {original}\n\n"
-                    f"이번엔 반드시 실제 쉘 명령을 실행해서 stdout 을 받아내고, "
-                    f"그 결과를 근거로 답하라. 개념 설명·표·체크리스트만 출력 금지."
+                    f"방금 시도는 도구를 실제로 실행하지 않았다(코드 예시·설명·표만 출력했거나 도구 호출 0회). "
+                    f"이번엔 shell 또는 python3 skill 의 command 에 실제 명령을 넣어 반드시 호출하고 stdout 을 받아내라. "
+                    f"장애물이면 포기 말고: command not found → apt-get install -y/pip3 install 후, "
+                    f"404 → 다른 경로 탐색 후, 401 → 토큰 획득 후 재시도하라. "
+                    f"개념 설명·코드블록·표만 출력하면 작업이 완료되지 않은 것이다."
                 )
         finally:
             # ── KG 사용 audit event emit (호출자가 매 chat 의 KG 흔적 확인 가능) ──
@@ -818,7 +823,7 @@ class BastionAgent:
 
             # ── Audit 기록 (항상, 에러나도) ───────────────────────────────────
             try:
-                from packages.bastion.audit import get_audit_log
+                from bastion.audit import get_audit_log
                 duration_ms = int((_time.time() - t0) * 1000)
                 test_meta = getattr(self, "_test_meta", {}) or {}
                 verify_ctx = getattr(self, "_verify_context", {}) or {}
@@ -910,13 +915,17 @@ class BastionAgent:
             chunks = self.rag_index.search(message, top_k=3)
             rag_ctx = format_context(chunks)
         prev_ctx = self.evidence_db.recent_context()
-        exp_ctx = self.experience.get_context(message)
+        # EG ablation: experience 주입은 experience/full tier 만 (off 는 No-EG 조건). 운영 기본 full.
+        exp_ctx = (self.experience.get_context(message)
+                   if getattr(self, "_eg_mode", "full") in ("experience", "full") else "")
 
         # ══ STAGE 1: PLANNING ══════════════════════════════════════════════
         yield {"event": "stage", "stage": "planning"}
 
         # 1-a. 정적 Playbook 우선 (Playbooks are law)
-        playbook_id = self._select_playbook(message)
+        # EG ablation: 정적 playbook 은 playbook/full tier 만 (off/experience 는 skip — playbook = KG-2 Reuse 경로)
+        playbook_id = (self._select_playbook(message)
+                       if getattr(self, "_eg_mode", "full") in ("playbook", "full") else None)
 
         if playbook_id:
             yield {"event": "playbook_selected", "playbook_id": playbook_id,
@@ -1157,7 +1166,7 @@ class BastionAgent:
                 self._update_assets_from_result(skill_name, params, success)
                 # 5a) Asset autoscan — probe 결과 → asset 노드 자동 등록
                 try:
-                    from packages.bastion.asset_domain import autoscan_register
+                    from bastion.asset_domain import autoscan_register
                     import re as _re
                     target = params.get("target", "")
                     out = output or ""
@@ -1240,11 +1249,18 @@ class BastionAgent:
             "skip_reason": "",
         }
 
+        # EG ablation: eg_mode=off → KG 사전참조 skip (No-KG 조건). 운영 기본 full.
+        eg_mode = getattr(self, "_eg_mode", "full")
+        if eg_mode == "off":
+            self._last_kg_status["skip_reason"] = "eg_mode_off"
+            self._kg_metric_inc("kg_context_skip", labels={"reason": "eg_mode_off"})
+            return messages
+
         if not messages:
             self._last_kg_status["skip_reason"] = "empty_messages"
             return messages
         try:
-            from packages.bastion.kg_context import get_builder
+            from bastion.kg_context import get_builder
             builder = get_builder()
         except Exception as e:
             self._last_kg_status["context_error"] = f"import_failed: {e}"
@@ -1265,7 +1281,7 @@ class BastionAgent:
             return messages
 
         try:
-            ctx = builder.build(last_user, model=self.model)
+            ctx = builder.build(last_user, model=self.model, eg_mode=eg_mode)
             block = builder.format(ctx)
         except Exception as e:
             self._last_kg_status["context_error"] = f"build_failed: {e}"
@@ -1304,7 +1320,7 @@ class BastionAgent:
 
     def _kg_metric_inc(self, name: str, *, labels: dict | None = None) -> None:
         try:
-            from packages.bastion.kg_metrics import get_metrics
+            from bastion.kg_metrics import get_metrics
             get_metrics().inc(name, labels=labels or {})
         except Exception:
             pass
@@ -1620,7 +1636,7 @@ class BastionAgent:
         - 모델 호출 실패 시 조용히 빈 리스트 (무해)
         """
         try:
-            from packages.bastion import LLM_SUBAGENT_MODEL
+            from bastion import LLM_SUBAGENT_MODEL
             sub_model = LLM_SUBAGENT_MODEL
         except Exception:
             sub_model = "gemma3:4b"
@@ -1744,10 +1760,69 @@ class BastionAgent:
             "3. 도구 호출 시: 정확한 skill 이름과 필수 파라미터 모두 채워서. 결과는 자동으로 다음 turn 에 보인다.\n"
             "4. 종료 조건: tool_calls 없는 응답 = 작업 끝. 이때 응답에 \"GOAL 충족됨: ...\" 명시.\n"
             "\n"
+            "## ★ 실행 원칙 (위반 시 작업이 미완료로 간주된다)\n"
+            "- 코드 예시·pseudo-step·표·'이렇게 하면 됩니다' 식 설명만 출력하고 끝내지 마라. 그건 실행이 아니다.\n"
+            "  반드시 shell 또는 python3 skill 의 command 파라미터에 실제 명령을 넣어 호출해 stdout 을 받아라.\n"
+            "  파이썬 분석이 필요하면 코드를 보여주지 말고 shell 로 `python3 -c '...'` 또는 파일 저장 후 실행해 결과를 얻어라.\n"
+            "- 장애물을 만나면 포기하지 말고 아래 대안을 2~3개 시도한 뒤에만 '불가' 결론을 내려라:\n"
+            "  · command not found / 도구 미설치 → shell 로 `apt-get install -y <pkg>` 또는 `pip3 install <pkg>` 설치 후 재시도\n"
+            "  · 404 / endpoint 없음 → 다른 경로 탐색(/api-docs, swagger, 다른 HTTP 메서드, 루트 GET 으로 구조 확인)\n"
+            "  · 401 / 인증 필요 → 로그인 요청으로 토큰 획득 후 Authorization 헤더에 동봉해 재시도\n"
+            "  · 특정 필드·decoder·소스가 비어있다고 보일 때(srcip/dstuser/location 등) → 포기 금지.\n"
+            "    ① 같은 alerts.json 의 **다른 필드**(data.src_ip / data.srcip / data.client_ip / data.user / rule.id)\n"
+            "    ② 다른 **decoder·rule.groups**(syslog, sshd, haproxy-denat, modsec)\n"
+            "    ③ de-NAT alert(rule 100250 access / 100251 web공격)의 **원본 srcip**\n"
+            "    — 최소 3가지 대안을 shell 로 직접 jq/python3 파싱해 본 뒤에만 '데이터 없음' 결론.\n"
+            "\n"
+            "## ★ 상태변경(remediation) — 효과 검증 + 자가수정 (명령 실행 ≠ 완료)\n"
+            "차단·룰 추가/삭제·격리·서비스 변경 등 인프라 상태를 바꾸는 작업은 '의도한 효과가 실제로 발생'해야 완료다:\n"
+            "  (V1) **검색된 절차 우선**: KG 컨텍스트 Anchor/Playbook 에 현재 작업과 일치하는 *검증된 절차·명령*이\n"
+            "       있으면, 너의 직관(예: 'forward 체인이 맞겠지')보다 그 절차를 우선해 그대로 적용하라\n"
+            "       (테이블/체인/대상/매칭조건까지). 과거 검증된 결과이므로 직관과 달라도 절차를 따른다.\n"
+            "  (V2) **효과 직접 재검증**: 작업 후 의도한 효과가 났는지 *상태/트래픽으로* 확인하라. 예) 특정 IP 차단이면\n"
+            "       그 출처(예: 해당 컨테이너)에서 대상으로 실제 요청(curl 등)을 재시도해 막혔는지(timeout/거부)를\n"
+            "       확인. '룰이 목록에 보인다'만으로 성공 보고 금지 — 트래픽이 실제로 끊겨야 성공.\n"
+            "  (V3) **실패 시 자가수정**: 재검증 결과 효과가 없으면 실패로 간주하고, 적용 지점(테이블/체인/매칭/대상)을\n"
+            "       바꿔 효과가 확인될 때까지 2~3회 재시도하라. 그 뒤에만 '미적용/부분적용' 결론.\n"
+            "  (V4) **무차별 차단 금지**: 차단류는 정상 출처는 여전히 도달하는지(과차단 아님)도 함께 확인.\n"
+            "\n"
+            "## ★ 분석·조사 task 의 final 답변 형식 (4축 모두 채울 것)\n"
+            "산문·설명·pseudo·표만 출력하면 미완료다. 도구 stdout 을 아래 4축으로 가공해 답하라.\n"
+            "  ① **timeline** — 시각 순 'HH:MM:SS — 이벤트' 줄 단위\n"
+            "  ② **정량 수치** — 개수·평균·표준편차·비율·% (숫자 표 또는 bullet)\n"
+            "  ③ **표준 매핑** — OWASP A0X / MITRE T1XXX / CVE / rule.id 중 task 에 맞는 것\n"
+            "  ④ **결론·권고** — 차단·완화 액션 1~3개(구체적 IP/룰/명령 포함)\n"
+            "\n"
             "## 사용 가능한 Skill (function tools)\n"
             "※ 9개 일반 skill (shell/ollama_query/probe_*/file_manage/docker_manage 등) 만 의존하지 말고,\n"
             "   step 키워드가 IR/포렌식/AI 보안/모의해킹/컴플라이언스/장기기억 카테고리에 해당하면\n"
             "   해당 카테고리의 전용 skill 을 우선 호출할 것. shell 로 동등 동작이 가능해도 전용 skill 사용.\n"
+            "\n"
+            "## ★ el34 실제 자산 매핑 (fix-H 2026-05-18 NL-M4 발견)\n"
+            "INTERNAL_IPS (예: web=10.20.30.80) 은 학습용 placeholder 일 뿐.\n"
+            "실제 컨테이너 IP/네트워크는 다음. **이 매핑을 사용해서 명령 수행하라**:\n"
+            "| Container | Network | IP | 역할 |\n"
+            "|-----------|---------|-----|-----|\n"
+            "| el34-bastion | ext | 10.20.30.201 | Bastion Master (너 자신) |\n"
+            "| el34-attacker | ext | 10.20.30.202 | Red team VM |\n"
+            "| el34-fw | ext+pipe | 10.20.30.1, 10.20.31.1 | Firewall router |\n"
+            "| el34-ips | dmz+pipe | 10.20.32.1, 10.20.31.2 | Suricata IDS |\n"
+            "| el34-web | dmz+int | 10.20.32.80, 10.20.40.80 | Apache + ModSec WAF |\n"
+            "| el34-siem | dmz | 10.20.32.100 | Wazuh manager |\n"
+            "| el34-juiceshop | int | 10.20.40.81 | OWASP Juice Shop |\n"
+            "| el34-dvwa | int | 10.20.40.82 | DVWA |\n"
+            "**중요**: bastion (너) 은 dmz 미연결. dmz/int 컨테이너 접근은 **반드시 `docker exec el34-<X>`** 통해.\n"
+            "attacker VM 에서 web 접근은 fw 통해 라우팅 — `ssh el34-attacker curl http://10.20.32.80/` 또는 `juice.el34.lab`.\n"
+            "\n"
+            "## ★ 조회 vs 변경 — 절대 혼동 금지 (autopilot fix-B 2026-05-18)\n"
+            "**조회 (Read-only) — 사용자 요청 동사가 '확인/조회/보기/요약/검사/측정/카운트'** :\n"
+            "  → shell (cat/ls/grep/wc/ps), probe_host, probe_all, docker_manage(action=ps), file_manage(action=read)\n"
+            "  → 절대 configure_* / fw_rule_add / install_* / restart_* 등 변경 skill 호출 금지\n"
+            "**변경 (Write/Modify) — 사용자 요청 동사가 '설정/변경/추가/삭제/배포/재시작/설치'** :\n"
+            "  → configure_nftables / configure_modsec / fw_rule_add / install_pkg / restart_service\n"
+            "**예시**: 'el34 의 fw nftables 규칙 확인' = 조회 = shell `docker exec el34-fw nft list ruleset` 또는\n"
+            "  docker_manage(action=exec). configure_nftables 절대 금지 (변경 작업).\n"
+            "\n"
             f"{skill_list}\n"
             "\n"
             "## Skill 선택 휴리스틱 (★ recall 강화)\n"
@@ -1888,20 +1963,27 @@ class BastionAgent:
         sys_prompt = self._build_react_system_prompt()
 
         # KG-4: playbook lookup → reuse/adapt/new 결정
+        # EG ablation: playbook lookup+주입은 playbook/full tier 만. off/experience 는 skip —
+        # off 가 진짜 No-KG 가 되도록(playbook 도 KG-2 Reuse 경로). off 흔적은 decision=skipped_eg_mode 로 가시화.
         lookup_result = None
-        try:
-            from packages.bastion.lookup import decide, build_lookup_prompt
-            lookup_result = decide(message, self.ollama_url, self.model)
-            yield {"event": "lookup_decision",
-                   "decision": lookup_result.get("decision"),
-                   "playbook_id": lookup_result.get("playbook_id", ""),
-                   "confidence": lookup_result.get("confidence", 0),
-                   "reason": lookup_result.get("reason", "")}
-            inject = build_lookup_prompt(lookup_result)
-            if inject:
-                sys_prompt += "\n\n## [lookup result — 매칭된 playbook 활용]\n" + inject
-        except Exception as _e:
-            yield {"event": "lookup_error", "error": str(_e)[:200]}
+        _eg = getattr(self, "_eg_mode", "full")
+        if _eg in ("playbook", "full"):
+            try:
+                from bastion.lookup import decide, build_lookup_prompt
+                lookup_result = decide(message, self.ollama_url, self.model)
+                yield {"event": "lookup_decision",
+                       "decision": lookup_result.get("decision"),
+                       "playbook_id": lookup_result.get("playbook_id", ""),
+                       "confidence": lookup_result.get("confidence", 0),
+                       "reason": lookup_result.get("reason", "")}
+                inject = build_lookup_prompt(lookup_result)
+                if inject:
+                    sys_prompt += "\n\n## [lookup result — 매칭된 playbook 활용]\n" + inject
+            except Exception as _e:
+                yield {"event": "lookup_error", "error": str(_e)[:200]}
+        else:
+            yield {"event": "lookup_decision", "decision": "skipped_eg_mode",
+                   "playbook_id": "", "confidence": 0, "reason": f"eg_mode={_eg}"}
 
         # 메시지 빌드. 컨텍스트(rag/prev/exp)는 system 에 추가.
         ctx_lines = []
@@ -1918,6 +2000,10 @@ class BastionAgent:
             {"role": "system", "content": sys_prompt},
             {"role": "user", "content": message},
         ]
+        # EG 사전참조: ReAct 본체는 이 msgs 를 모든 turn 의 httpx.post 가 재사용한다.
+        # _stream_llm hook 만으로는 ReAct 의 직접 httpx.post 경로가 우회되어
+        # KG 사전참조가 누락된다(kg_status hits=0). system 에 KG context 1회 주입.
+        msgs = self._inject_kg_context(msgs)
 
         try:
             tools_spec = self._select_relevant_tools(message, max_n=12)
@@ -2078,8 +2164,15 @@ class BastionAgent:
                     continue
 
                 # Step 6 self-verify (한 번만)
+                # ★ F13 fix (2026-05-18 reset cycle 4): turn 0 + all_tool_outputs 0
+                #   + empty_content_retry 소진 = LLM 응답 fail → self_verify 강제 트리거.
+                #   M28/M32/M34/M35 의 KG context echo path (도구 미실행 + LLM 직접 응답) 차단.
+                _force_self_verify = (
+                    empty_content_retry_used >= EMPTY_CONTENT_RETRY
+                    and not all_tool_outputs
+                )
                 if (self_verified_attempted < SELF_VERIFY_RETRY and
-                    (turn > 0 or all_tool_outputs)):  # 도구 한 번이라도 돌렸을 때만 의미 있음
+                    (turn > 0 or all_tool_outputs or _force_self_verify)):
                     ok, why = self._self_verify_completion(message, all_tool_outputs, content)
                     if not ok:
                         self_verified_attempted += 1
@@ -2243,7 +2336,21 @@ class BastionAgent:
         # 우선순위: prose 추출 → verify.semantic.acceptable_methods → LLM 변환
         _fallback_cmd: str | None = None
         _fallback_source = ""
-        if not all_tool_outputs:
+        # ★ F12 v2 (2026-05-18 reset cycle 3): all_tool_outputs empty 외에도
+        #   last_assistant_content 가 일반론 punt 면 prompt_fallback 강제.
+        #   M28/M32/M34 의 KG context echo 응답 차단.
+        _is_general_punt = False
+        if last_assistant_content and not all_tool_outputs:
+            _ltrim = (last_assistant_content or "").strip()
+            _general_markers = (
+                "확인 필요", "검토 권장", "추가 모니터링", "추가적인 모니터링",
+                "정상 작동 여부", "방화벽 규칙 검토", "네트워크 설정 확인",
+                "비정상적인 활동", "필요하다면", "권장합니다", "추천:",
+                "예상치 못한", "검토하여",
+            )
+            if any(m in _ltrim for m in _general_markers):
+                _is_general_punt = True
+        if not all_tool_outputs or _is_general_punt:
             _msg_cmds = _extract_shell_from_prose(message or "")
             if _msg_cmds:
                 _fallback_cmd = _msg_cmds[0]
@@ -2269,7 +2376,16 @@ class BastionAgent:
                             "model": self.model,
                             "messages": [{
                                 "role": "system",
-                                "content": "You convert a Korean/English security task description into ONE single shell command. Output ONLY the command, no explanation, no markdown, no quotes. If you cannot, output 'echo SKIP'."
+                                "content": (
+                                "You convert a Korean/English security task description into ONE single shell command. "
+                                "Output ONLY the command, no explanation, no markdown, no quotes. "
+                                "If you cannot, output 'echo SKIP'.\n\n"
+                                "★ CRITICAL RULES (F15 fix 2026-05-18):\n"
+                                "1. **NEVER convert container names to IPs.** If the task says `el34-bastion`, "
+                                "`el34-fw`, `el34-attacker` etc — keep as-is. DO NOT replace with 127.0.0.1, 10.20.30.x, etc.\n"
+                                "2. **Preserve exact command syntax** including `docker exec`, `ssh`, quotes, pipes.\n"
+                                "3. If the task already contains a shell command after `실행:` or `Run:` — copy that command verbatim."
+                            )
                             }, {
                                 "role": "user",
                                 "content": f"Task: {message[:500]}\n\nVM IPs: {self.vm_ips}\n\nSingle shell command:"
@@ -2333,11 +2449,17 @@ class BastionAgent:
         #   추가 패턴 (fix #10): GOAL=/SUCCESS=/TODO_LIST= 만 있고 stdout 인용 없는 plan-only.
         _content_is_punt = False
         _trim = (last_assistant_content or "").strip()
-        if _trim and all_tool_outputs:
+        # ★ F12 fix (2026-05-18 reset cycle 3): all_tool_outputs empty 인 경우도
+        #   punt 검사 — KG context echo 의 일반론 응답 (M27/M28/M32) 차단.
+        if _trim and (all_tool_outputs or not all_tool_outputs):
             _punt_markers = (
                 "다음 단계에서", "다음 단계로", "이어서 분석", "계속 진행하겠습니다",
                 "will analyze", "next step", "[prompt-fallback]", "계속해서",
                 "다음 turn 에서", "이후 분석",
+                # ★ F12: KG context echo 의 일반론 마커
+                "확인 필요", "검토 권장", "추가 모니터링", "추가적인 모니터링",
+                "정상 작동 여부 확인", "방화벽 규칙 검토", "네트워크 설정 확인",
+                "비정상적인 활동", "필요하다면", "권장합니다",
             )
             # plan-only 마커 (fix #10): GOAL/SUCCESS/TODO_LIST 헤더 + 도구 출력 인용 없음
             _plan_markers = ("GOAL=", "SUCCESS=", "TODO_LIST=", "TODO=", "PLAN=")
@@ -2374,9 +2496,13 @@ class BastionAgent:
             # bastion-autopilot cycle 1 (2026-05-18) 발견: skill_result success=false
             # 인데 LLM 이 "출력 결과 (예상):" 같은 가짜 example 생성 (학습 가치 0 +
             # 운영 위험). _synth_prompt 에 명시적 anti-hallucination 룰 추가.
+            # ★ F7 fix (2026-05-18 reset cycle 1): turn_traces 는 content/thinking 만
+            #   저장 (line 2015) — success/output 미저장. 결과적으로 _any_skill_ok 항상
+            #   false → 도구 성공 시 에도 "도구 실행 실패" prompt branch → LLM 가짜 보고.
+            #   all_tool_outputs (line 2318 등) 가 진짜 success/output source.
             _any_skill_ok = any(
-                (tr.get("success") and (tr.get("output") or "").strip())
-                for tr in (turn_traces or [])
+                (to.get("success") and (to.get("output") or "").strip())
+                for to in (all_tool_outputs or [])
             )
             if _any_skill_ok:
                 _synth_prompt = (
@@ -2388,6 +2514,15 @@ class BastionAgent:
                     "4. 분량: 5~10줄.\n"
                     "5. **절대 금지**: 도구 stdout 에 없는 데이터/숫자/파일명/컨테이너명 등을\n"
                     "   생성·예상·추정 으로 출력 금지. '예상', '(예상)', '~일 것입니다' 표현 금지.\n"
+                    # ★ F8 fix (2026-05-18 reset cycle 1 의 M13/M15/M19/M23 분석):
+                    "6. **PID 숫자 vs '개수' 구분**: stdout 가 `49 suricata ...` 면 49 는 PID.\n"
+                    "   '49개', '49 개 실행' 표현 금지. 정확히 'PID 49' 또는 '1 process' 보고.\n"
+                    "7. **HTTP code vs 차단 일치**: stdout 의 HTTP code 가 200/302 이면 '통과/응답 OK'.\n"
+                    "   403/406/501 이어야 '차단' 보고. 200 + '차단' 같은 모순 표현 절대 금지.\n"
+                    "8. **stdout 가 banner/help text 만**: 실제 명령 결과 없으면 '결과 없음' 정직 보고.\n"
+                    "   '스캔 완료', '실행 결과 확인' 가짜 결론 금지. 도구 banner ≠ 도구 출력.\n"
+                    "9. **결론은 json tool-call format 금지**: `{\"tool\":...}` 같은 json 으로\n"
+                    "   결론 대체 금지. 한국어 평문 으로 결론 마무리.\n"
                     + _crit_block
                 )
             else:
@@ -2486,15 +2621,18 @@ class BastionAgent:
         실제 결정 로직(reuse/adapt/new) 은 KG-4 에서. 여기서는 일단 매번 새 playbook 생성
         (KG-4 가 lookup 으로 redirect). 디스크 + 그래프 동시 갱신.
         """
+        # EG ablation: eg_mode=off → 사후 anchor/playbook 기록 skip (No-KG 조건). 운영 기본 full.
+        if getattr(self, "_eg_mode", "full") == "off":
+            return
         if not tool_outputs:
             return  # tool 안 쓴 Q&A 는 그래프 학습에서 제외
 
         try:
-            from packages.bastion.graph import get_graph
-            from packages.bastion.playbook import (
+            from bastion.graph import get_graph
+            from bastion.playbook import (
                 write_playbook, update_exec_history, _slugify,
             )
-            from packages.bastion.experience import CATEGORY_RULES
+            from bastion.experience import CATEGORY_RULES
         except Exception:
             return
 
@@ -2664,7 +2802,7 @@ class BastionAgent:
             "dedup": False, "error": "",
         }
         try:
-            from packages.bastion.kg_recorder import (
+            from bastion.kg_recorder import (
                 get_recorder, extract_mitre_ids,
             )
             recorder = get_recorder()
@@ -2936,7 +3074,7 @@ class BastionAgent:
         # w24 개선: Manager 모델 실패 시 SubAgent(작은 모델) 재시도
         # — 작은 모델이 더 직설적인 1줄 명령을 낼 때가 있음 (과도한 안전 필터 적응 유발)
         try:
-            from packages.bastion import LLM_SUBAGENT_MODEL
+            from bastion import LLM_SUBAGENT_MODEL
             sub_model = LLM_SUBAGENT_MODEL
         except Exception:
             sub_model = "gemma3:4b"
@@ -3296,7 +3434,7 @@ class BastionAgent:
 
     def _enrich_params(self, skill_name: str, params: dict) -> dict:
         """role 이름 → IP 자동 변환, skill 고정 target_vm 자동 주입."""
-        from packages.bastion import INTERNAL_IPS
+        from bastion import INTERNAL_IPS
         enriched = dict(params)
         skill_def = SKILLS.get(skill_name, {})
 
@@ -3324,9 +3462,25 @@ class BastionAgent:
 
     def _pre_check(self, skill_name: str, params: dict) -> tuple[bool, str]:
         """실행 전 타겟 VM 헬스 확인 (evidence-first)."""
-        from packages.bastion import health_check, INTERNAL_IPS
+        from bastion import health_check, INTERNAL_IPS
         skill_def = SKILLS.get(skill_name, {})
         target_vm = skill_def.get("target_vm", "auto")
+
+        # ★ fix-D (2026-05-18): bastion 의 ext network 만 직접 reachable.
+        #   dmz/int container 는 ping fail 이지만 docker exec/socket 호출 정상 작동.
+        #   다음 경우 precheck skip:
+        #   1) skill 이 docker daemon 기반 (docker_manage, check_*, probe_*)
+        #   2) shell command 가 docker exec/ps/logs/network/images/volume 시작
+        _docker_skills = {"docker_manage", "check_modsecurity", "check_suricata",
+                          "check_wazuh", "probe_host", "probe_all"}
+        if skill_name in _docker_skills:
+            return True, f"{skill_name} — docker socket 호출, precheck skipped (fix-D)"
+        _cmd = (params.get("command", "") or params.get("script", "") or "").strip()
+        _docker_prefixes = ("docker ", "docker exec", "docker ps", "docker logs",
+                            "docker inspect", "docker network", "docker images",
+                            "docker volume", "docker stats", "docker top")
+        if any(_cmd.startswith(p) for p in _docker_prefixes):
+            return True, "docker command — precheck skipped (fix-D)"
 
         if target_vm == "local":
             return True, "local"
@@ -3524,7 +3678,7 @@ class BastionAgent:
         for role, r_ip in self.vm_ips.items():
             if r_ip == ip:
                 return role
-        from packages.bastion import INTERNAL_IPS
+        from bastion import INTERNAL_IPS
         for role, r_ip in INTERNAL_IPS.items():
             if r_ip == ip:
                 return role
@@ -3595,7 +3749,7 @@ class BastionAgent:
 
         반환: skills_to_ollama_tools() 와 동일 형식 (subset).
         """
-        from packages.bastion.skills import SKILLS, skills_to_ollama_tools
+        from bastion.skills import SKILLS, skills_to_ollama_tools
         msg_low = (message or "").lower()
         scored: dict[str, int] = {}
         for sname in SKILLS:
@@ -3656,7 +3810,7 @@ class BastionAgent:
 
     def _update_assets_from_result(self, skill_name: str, params: dict, success: bool):
         """Skill 실행 결과로 Asset 상태 업데이트."""
-        from packages.bastion import INTERNAL_IPS
+        from bastion import INTERNAL_IPS
         status = "online" if success else "unreachable"
         if skill_name == "probe_all":
             for role, ip in self.vm_ips.items():

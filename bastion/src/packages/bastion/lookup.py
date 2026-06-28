@@ -15,7 +15,7 @@ from typing import Any
 
 import httpx
 
-from packages.bastion.graph import get_graph
+from bastion.graph import get_graph
 
 
 # 강제 결정 임계값

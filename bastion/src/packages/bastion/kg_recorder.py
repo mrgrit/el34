@@ -63,7 +63,7 @@ class KGRecorder:
             return None
         if self._history is None:
             try:
-                from packages.bastion.history import HistoryLayer
+                from bastion.history import HistoryLayer
                 self._history = HistoryLayer()
             except Exception:
                 self._history = False
@@ -227,7 +227,7 @@ class KGRecorder:
     def _metric_inc(self, name: str, *, labels: dict | None = None):
         if not self._metrics:
             try:
-                from packages.bastion.kg_metrics import get_metrics
+                from bastion.kg_metrics import get_metrics
                 self._metrics = get_metrics()
             except Exception:
                 return

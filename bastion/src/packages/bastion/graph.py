@@ -156,9 +156,14 @@ class KnowledgeGraph:
         self._init_schema()
 
     def _conn(self) -> sqlite3.Connection:
-        c = sqlite3.connect(self.db_path)
+        # WAL + busy_timeout: ReAct 중 write(_persist)와 read(_inject search_fts)가
+        # 동시 발생 시 default(DELETE) journal 은 reader 를 block→timeout→예외→빈 결과.
+        # WAL 은 writer 가 reader 를 막지 않음 → 사전참조 search_fts 안정.
+        c = sqlite3.connect(self.db_path, timeout=15.0)
         c.row_factory = sqlite3.Row
         c.execute("PRAGMA foreign_keys = ON")
+        c.execute("PRAGMA journal_mode = WAL")
+        c.execute("PRAGMA busy_timeout = 15000")
         return c
 
     def _init_schema(self):

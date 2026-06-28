@@ -7,8 +7,8 @@ PLANNING 단계에서 두 가지 프롬프트를 순서대로 사용:
 from __future__ import annotations
 import os
 
-from packages.bastion.skills import SKILLS
-from packages.bastion.playbook import list_playbooks
+from bastion.skills import SKILLS
+from bastion.playbook import list_playbooks
 
 
 def build_planning_prompt(vm_ips: dict[str, str] = None,

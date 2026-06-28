@@ -258,6 +258,9 @@ class ChatRequest(BaseModel):
     verify_success_criteria: list = []   # 충족해야 할 기준 (3+)
     verify_acceptable_methods: list = [] # 등가 허용 방법
     verify_negative_signs: list = []     # 명시적 fail 신호
+    # EG ablation 평가용 — off | playbook | experience | full (default full = 운영 기본).
+    # 운영은 항상 full(KG hard-coded). off/playbook/experience 는 Bastion-Bench 측정 전용.
+    eg_mode: str = "full"
 
 
 # ── 엔드포인트 ──────────────────────────────────────────────────────────────
@@ -1114,6 +1117,9 @@ def chat(req: ChatRequest):
         "step_order": req.step_order,
         "test_session": req.test_session,
     } if req.course else {}
+    # EG ablation mode — _test_meta 는 evidence_db.add(**_test_meta) 로 spread 되므로
+    # eg_mode 를 넣으면 TypeError. 별도 attr 로 분리.
+    agent._eg_mode = (req.eg_mode or "full").lower()
     # Step 3: 채점 기준 정렬 — agent 가 같은 기준으로 작업
     agent._verify_context = {
         "intent": req.verify_intent or "",

@@ -22,13 +22,13 @@ import os
 import sqlite3
 import yaml
 
-from packages.bastion.graph import get_graph
-from packages.bastion.playbook import PLAYBOOKS_DIR
-from packages.bastion.skills import SKILLS
+from bastion.graph import get_graph
+from bastion.playbook import PLAYBOOKS_DIR
+from bastion.skills import SKILLS
 
 # experience 카테고리 룰 재사용
 try:
-    from packages.bastion.experience import CATEGORY_RULES
+    from bastion.experience import CATEGORY_RULES
 except ImportError:
     CATEGORY_RULES = []
 

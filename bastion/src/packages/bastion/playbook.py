@@ -44,7 +44,7 @@ import re
 import yaml
 from typing import Any, Generator
 
-from packages.bastion.skills import execute_skill, SKILLS
+from bastion.skills import execute_skill, SKILLS
 
 
 # ── 확장 schema 헬퍼 ────────────────────────────────────────────────────
