@@ -22,8 +22,9 @@
   </div>
 
   <div id="modelbox" style="display:none;margin-top:8px;">
-    <label class="muted">모델 선택 (ollama list)</label>
+    <label class="muted">모델 선택 (ollama list) · <b>4B 이상 모델은 목록에서 제외됩니다</b></label>
     <select id="model"></select>
+    <div id="blockednote" class="muted" style="margin:-4px 0 8px;"></div>
     <button class="btn" type="button" onclick="saveCfg()">💾 이 서버·모델로 저장</button>
   </div>
 
@@ -54,7 +55,9 @@ async function loadModels(){
   if(!j.models.length){ flash('연결됨 — 그러나 설치된 모델이 없습니다. 서버에서 <code>ollama pull &lt;model&gt;</code> 필요', false); return; }
   j.models.forEach(m=>{ const o=document.createElement('option'); o.value=m; o.textContent=m; sel.appendChild(o); });
   document.getElementById('modelbox').style.display='block';
-  flash('✅ 연결 성공 — 모델 '+j.models.length+'개. 선택 후 저장하세요.', true);
+  const bn=document.getElementById('blockednote');
+  bn.textContent = (j.blocked && j.blocked.length) ? ('🚫 '+j.limit_b+'B 이상 제외: '+j.blocked.join(', ')) : '';
+  flash('✅ 연결 성공 — 선택 가능 '+j.models.length+'개'+((j.blocked&&j.blocked.length)?(' (제외 '+j.blocked.length+'개)'):'')+'. 선택 후 저장하세요.', true);
 }
 async function saveCfg(){
   const ip=document.getElementById('ip').value.trim();

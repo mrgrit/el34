@@ -68,6 +68,45 @@ LLM_CFG = {
     "model":   os.environ.get("OLLAMA_MODEL", "gemma3:4b"),
 }
 
+# 모델 크기 제한 — 4B '이상'(>=) 모델은 선택/사용 불가 (교실 CPU 추론 부하 방지).
+MAX_MODEL_PARAM_B = float(os.environ.get("MAX_MODEL_PARAM_B", "4"))
+_SIZE_RE = re.compile(r"(\d+(?:\.\d+)?)\s*[bB]\b")
+
+def _parse_param_b(*texts):
+    """모델명 태그('...:4b')나 details.parameter_size('4.3B')에서 파라미터 수(B) 추출."""
+    for t in texts:
+        if not t:
+            continue
+        m = _SIZE_RE.search(str(t))
+        if m:
+            return float(m.group(1))
+    return None
+
+def _model_param_b(entry):
+    """ /api/tags 의 모델 엔트리(dict) 또는 모델명(str) → 파라미터 B (없으면 None)."""
+    if isinstance(entry, dict):
+        name = entry.get("name", "")
+        psize = entry.get("details", {}).get("parameter_size")
+        return _parse_param_b(psize, name.split(":")[-1], name)
+    name = str(entry or "")
+    return _parse_param_b(name.split(":")[-1], name)
+
+def _model_allowed(param_b):
+    # 크기를 알 수 없으면(None) 차단(안전측). 4B 미만만 허용.
+    return param_b is not None and param_b < MAX_MODEL_PARAM_B
+
+def _server_param_b(name, url):
+    """설정/대화 시 권위 있는 크기 확인 — 서버 /api/tags 의 details 우선, 실패 시 이름 파싱."""
+    try:
+        with urllib.request.urlopen(f"{(url or '').rstrip('/')}/api/tags", timeout=6) as r:
+            j = json.loads(r.read().decode("utf-8", "replace"))
+        for m in j.get("models", []):
+            if m.get("name") == name:
+                return _model_param_b(m)
+    except Exception:
+        pass
+    return _model_param_b(name)
+
 # ----------- DB -----------
 def db():
     if "db" not in g:
@@ -293,8 +332,15 @@ def llm_models():
     try:
         with urllib.request.urlopen(f"{url}/api/tags", timeout=8) as r:
             j = json.loads(r.read().decode("utf-8","replace"))
-        models = [m.get("name") for m in j.get("models", []) if m.get("name")]
-        return jsonify({"ok": True, "url": url, "models": models})
+        models, blocked = [], []
+        for m in j.get("models", []):
+            name = m.get("name")
+            if not name:
+                continue
+            (models if _model_allowed(_model_param_b(m)) else blocked).append(name)
+        # blocked: 4B 이상 모델 (선택 불가로 목록에서 제외)
+        return jsonify({"ok": True, "url": url, "models": models,
+                        "blocked": blocked, "limit_b": MAX_MODEL_PARAM_B})
     except Exception as e:
         return jsonify({"ok": False, "url": url, "err": str(e)}), 502
 
@@ -305,8 +351,13 @@ def llm_config():
         url = _norm_url(p.get("url",""), p.get("ip",""), p.get("port",""))
         if url:
             LLM_CFG["url"] = url
-        if (p.get("model") or "").strip():
-            LLM_CFG["model"] = p.get("model").strip()
+        model = (p.get("model") or "").strip()
+        if model:
+            pb = _server_param_b(model, url or LLM_CFG["url"])
+            if not _model_allowed(pb):
+                return jsonify({"ok": False,
+                    "err": f"'{model}'({pb or '?'}B)은 {MAX_MODEL_PARAM_B}B 이상이라 선택할 수 없습니다"}), 400
+            LLM_CFG["model"] = model
         if (p.get("backend") or "").strip():
             LLM_CFG["backend"] = p.get("backend").strip()
         elif url:
@@ -335,6 +386,9 @@ def api_chat():
     retrieved = _retrieve_rag(user_msg, k=3)
     # 대화 중 모델 토글: 클라이언트가 보낸 model 을 이번 요청에 한해 사용.
     req_model = (payload.get("model") or "").strip() or None
+    # 4B 이상 모델은 대화에서도 차단 (직접 API 우회 방지).
+    if req_model and not _model_allowed(_model_param_b(req_model)):
+        return jsonify({"error": f"'{req_model}' 은 {MAX_MODEL_PARAM_B}B 이상이라 사용할 수 없습니다"}), 400
     # 서버가 지정돼 있고(모델 선택했거나 전역이 ollama) → 실제 모델, 아니면 mock 폴백.
     backend = "ollama" if (LLM_CFG["url"] and (req_model or LLM_CFG["backend"] == "ollama")) else "mock"
     try:
