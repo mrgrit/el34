@@ -2,6 +2,16 @@
 {% block content %}
 <div class="card" style="min-height:420px;">
   <h2 style="margin-top:0;">💬 AICompanion 대화</h2>
+
+  <!-- 대화 중 모델 토글 -->
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;padding:8px;background:#01101a;border:1px solid var(--border);border-radius:6px;">
+    <span class="muted">🧠 모델</span>
+    <select id="modelsel" style="width:auto;min-width:190px;margin:0;"></select>
+    <button class="btn btn-sec" type="button" onclick="loadModels()" style="padding:6px 10px;">↻ 새로고침</button>
+    <span id="llmstat" class="tag">…</span>
+    <a href="/admin" class="muted" style="margin-left:auto;">⚙ 서버 설정</a>
+  </div>
+
   <div id="thread" style="min-height:300px;max-height:60vh;overflow:auto;padding:8px;"></div>
   <hr style="border-color:var(--border);">
   <form id="cf" onsubmit="return false;">
@@ -14,14 +24,55 @@
   </form>
 </div>
 <script>
+let curModel = null;   // 대화에 사용할 현재 모델
+let backend  = 'mock';
+
+async function loadCfg(){
+  try{
+    const j = await (await fetch('/api/llm/config')).json();
+    const c = j.config || {};
+    backend = c.backend; curModel = c.model;
+    updateStat(c);
+    await loadModels();
+  }catch(e){ document.getElementById('llmstat').textContent = 'cfg 오류'; }
+}
+function updateStat(c){
+  const s = document.getElementById('llmstat');
+  s.textContent = (c.backend==='ollama') ? ('ollama · '+(curModel||c.model)) : 'mock (시뮬레이션)';
+}
+async function loadModels(){
+  const sel = document.getElementById('modelsel');
+  try{
+    const j = await (await fetch('/api/llm/models')).json();
+    sel.innerHTML='';
+    if(j.ok && j.models && j.models.length){
+      j.models.forEach(m=>{ const o=document.createElement('option'); o.value=m; o.textContent=m;
+        if(m===curModel) o.selected=true; sel.appendChild(o); });
+      if(!sel.value) sel.selectedIndex=0;
+      curModel = sel.value;
+    } else {
+      const o=document.createElement('option');
+      o.value=curModel||''; o.textContent = curModel ? curModel+' (서버 미연결)' : '(모델 없음 — ⚙ 서버 설정 필요)';
+      sel.appendChild(o);
+    }
+  }catch(e){ /* ignore */ }
+  updateStat({backend:backend});
+}
+document.getElementById('modelsel').addEventListener('change', e=>{
+  curModel = e.target.value;                       // 대화 도중 모델 전환
+  updateStat({backend:backend});
+});
+
 async function send(){
   const m = document.getElementById('msg').value.trim();
   const sys = document.getElementById('sysadd').value;
   if(!m) return;
   add('u', m);
   document.getElementById('msg').value='';
+  const payload = {message:m, system:sys};
+  if(curModel) payload.model = curModel;           // 선택 모델을 이번 요청에 사용
   const r = await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({message:m, system:sys})});
+    body: JSON.stringify(payload)});
   const j = await r.json();
   add('a', j.answer || JSON.stringify(j), j.retrieved);
 }
@@ -41,5 +92,6 @@ function add(who, text, retrieved){
   }
   t.scrollTop = t.scrollHeight;
 }
+loadCfg();
 </script>
 {% endblock %}

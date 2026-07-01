@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h2 style="margin-top:0;">⚙️ AI 모델 서버 설정</h2>
+  <p class="muted">모델을 서빙하는 서버(ollama)의 IP·포트를 입력하고 <b>연결 &amp; 모델 불러오기</b>를 누르세요.
+    연결되면 <code>ollama list</code>(=/api/tags)의 모델 목록이 나타나며, 선택 후 저장하면 실제 모델과 대화합니다.</p>
+
+  <div id="msg"></div>
+
+  <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+    <div style="flex:2;min-width:180px;">
+      <label class="muted">서버 IP (또는 호스트명)</label>
+      <input id="ip" placeholder="예: 10.20.30.220" value="{{ (cfg.url or '').replace('http://','').replace('https://','').split(':')[0] }}">
+    </div>
+    <div style="flex:1;min-width:90px;">
+      <label class="muted">포트</label>
+      <input id="port" placeholder="11434" value="{{ (cfg.url or '').split(':')[-1] if ':' in (cfg.url or '').replace('http://','').replace('https://','') else '11434' }}">
+    </div>
+    <div style="margin-bottom:8px;">
+      <button class="btn" type="button" onclick="loadModels()">🔌 연결 &amp; 모델 불러오기</button>
+    </div>
+  </div>
+
+  <div id="modelbox" style="display:none;margin-top:8px;">
+    <label class="muted">모델 선택 (ollama list)</label>
+    <select id="model"></select>
+    <button class="btn" type="button" onclick="saveCfg()">💾 이 서버·모델로 저장</button>
+  </div>
+
+  <hr style="border-color:var(--border);margin:16px 0;">
+  <h3 style="margin:0 0 6px;">현재 상태</h3>
+  <table>
+    <tr><th>백엔드</th><td id="st-backend"><span class="tag">{{cfg.backend}}</span></td></tr>
+    <tr><th>서버 URL</th><td id="st-url"><code>{{cfg.url or '(미설정)'}}</code></td></tr>
+    <tr><th>모델</th><td id="st-model"><code>{{cfg.model}}</code></td></tr>
+  </table>
+  <p class="muted" style="margin-top:10px;">mock 으로 되돌리려면 백엔드를
+    <button class="btn btn-sec" style="padding:4px 10px;" type="button" onclick="setMock()">mock 으로 전환</button></p>
+</div>
+<script>
+function flash(t, ok){
+  const m=document.getElementById('msg');
+  m.innerHTML = '<div class="'+(ok?'tag':'err')+'" style="display:block;padding:8px 10px;">'+t+'</div>';
+}
+async function loadModels(){
+  const ip=document.getElementById('ip').value.trim();
+  const port=document.getElementById('port').value.trim()||'11434';
+  if(!ip){ flash('서버 IP 를 입력하세요', false); return; }
+  flash('연결 중… ('+ip+':'+port+')', true);
+  const r = await fetch('/api/llm/models?ip='+encodeURIComponent(ip)+'&port='+encodeURIComponent(port));
+  const j = await r.json();
+  if(!j.ok){ flash('연결 실패: '+(j.err||'')+' <span class="muted">('+(j.url||'')+')</span>', false); return; }
+  const sel=document.getElementById('model'); sel.innerHTML='';
+  if(!j.models.length){ flash('연결됨 — 그러나 설치된 모델이 없습니다. 서버에서 <code>ollama pull &lt;model&gt;</code> 필요', false); return; }
+  j.models.forEach(m=>{ const o=document.createElement('option'); o.value=m; o.textContent=m; sel.appendChild(o); });
+  document.getElementById('modelbox').style.display='block';
+  flash('✅ 연결 성공 — 모델 '+j.models.length+'개. 선택 후 저장하세요.', true);
+}
+async function saveCfg(){
+  const ip=document.getElementById('ip').value.trim();
+  const port=document.getElementById('port').value.trim()||'11434';
+  const model=document.getElementById('model').value;
+  const r = await fetch('/api/llm/config',{method:'POST',headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ip:ip, port:port, model:model, backend:'ollama'})});
+  const j = await r.json();
+  if(j.ok){ applyStatus(j.config); flash('💾 저장됨 — 이제 대화가 실제 모델('+model+')로 동작합니다.', true); }
+}
+async function setMock(){
+  const r = await fetch('/api/llm/config',{method:'POST',headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({backend:'mock'})});
+  const j = await r.json(); if(j.ok){ applyStatus(j.config); flash('mock 모드로 전환됨', true); }
+}
+function applyStatus(c){
+  document.getElementById('st-backend').innerHTML='<span class="tag">'+c.backend+'</span>';
+  document.getElementById('st-url').innerHTML='<code>'+(c.url||'(미설정)')+'</code>';
+  document.getElementById('st-model').innerHTML='<code>'+c.model+'</code>';
+}
+</script>
+{% endblock %}

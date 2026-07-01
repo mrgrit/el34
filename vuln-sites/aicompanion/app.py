@@ -58,9 +58,15 @@ SYSTEM_PROMPT = (
 
 # V15 hardcoded
 OPENAI_API_KEY = "sk-fake-PROD-AI-COMPANION-9b2f7c1d8a"
-LLM_BACKEND = os.environ.get("LLM_BACKEND", "mock")
-OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
-OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "gemma3:4b")
+
+# ----------- LLM 런타임 설정 (admin 페이지에서 실시간 변경 가능) -----------
+# backend: 'mock'(키워드 시뮬레이션) | 'ollama'(실제 모델 서빙 서버 호출)
+# url/model 은 /admin 에서 서버 IP·포트 입력 → 연결되면 ollama list 로 모델 선택.
+LLM_CFG = {
+    "backend": os.environ.get("LLM_BACKEND", "mock"),
+    "url":     (os.environ.get("OLLAMA_URL", "") or "").rstrip("/"),
+    "model":   os.environ.get("OLLAMA_MODEL", "gemma3:4b"),
+}
 
 # ----------- DB -----------
 def db():
@@ -152,28 +158,34 @@ def _retrieve_rag(query, k=3):
     scored.sort(key=lambda x:-x[0])
     return [r for _,r in scored[:k]]
 
-def _ollama(prompt):
+def _ollama(prompt, url=None, model=None):
+    base = (url or LLM_CFG["url"] or "").rstrip("/")
+    mdl  = model or LLM_CFG["model"]
+    if not base:
+        return "[ollama err: 서버 미지정 — /admin 에서 AI 모델 서버 IP·포트를 먼저 설정하세요]"
     try:
         req = urllib.request.Request(
-            f"{OLLAMA_URL}/api/generate",
-            data=json.dumps({"model": OLLAMA_MODEL, "prompt": prompt, "stream": False}).encode(),
+            f"{base}/api/generate",
+            data=json.dumps({"model": mdl, "prompt": prompt, "stream": False}).encode(),
             headers={"Content-Type":"application/json"})
-        with urllib.request.urlopen(req, timeout=30) as r:
+        # CPU 추론은 첫 응답이 느릴 수 있어 넉넉히
+        with urllib.request.urlopen(req, timeout=120) as r:
             j = json.loads(r.read().decode("utf-8","replace"))
             return j.get("response","")
     except Exception as e:
         return f"[ollama err: {e}]"
 
-def call_llm(system, user, retrieved):
+def call_llm(system, user, retrieved, backend=None, url=None, model=None):
     """
     의도적으로 취약: retrieved 문서 텍스트를 system 영역에 단순 concat → V02 indirect inject.
-    Mock 모드는 키워드 기반으로 jailbreak/leak 시뮬레이션.
+    backend='ollama' 면 실제 모델 서버 호출, 'mock' 이면 키워드 기반 시뮬레이션.
     """
     rag_block = "\n\n".join([f"[doc:{d['id']} {d['title']}]\n{d['content']}" for d in retrieved])
     full_prompt = f"{system}\n\n=== KNOWLEDGE ===\n{rag_block}\n\n=== USER ===\n{user}\n\n=== ASSISTANT ==="
 
-    if LLM_BACKEND == "ollama":
-        return _ollama(full_prompt)
+    backend = backend or LLM_CFG["backend"]
+    if backend == "ollama":
+        return _ollama(full_prompt, url, model)
 
     # ===== Mock: 의도적으로 취약 =====
     u = user.lower()
@@ -256,6 +268,53 @@ def kb():
     docs = cur.fetchall()
     return render_template("kb.html", me=me, docs=docs)
 
+@app.route("/admin")
+def admin_page():
+    # AI 모델 서버 설정 콘솔 — 서버 IP/포트 지정 → 모델 조회/선택.
+    me = current_user()
+    if not me: return redirect("/login")
+    return render_template("admin.html", me=me, cfg=LLM_CFG)
+
+# ----------- LLM 서버/모델 설정 API -----------
+def _norm_url(url="", ip="", port=""):
+    url = (url or "").strip()
+    if not url and (ip or "").strip():
+        url = f"http://{ip.strip()}:{(port or '11434').strip()}"
+    if url and not url.startswith(("http://", "https://")):
+        url = "http://" + url
+    return url.rstrip("/")
+
+@app.route("/api/llm/models")
+def llm_models():
+    # ollama list 상당 — {server}/api/tags 로 사용 가능 모델 조회.
+    url = _norm_url(request.args.get("url",""), request.args.get("ip",""), request.args.get("port","")) or LLM_CFG["url"]
+    if not url:
+        return jsonify({"ok": False, "err": "서버 URL 이 없습니다"}), 400
+    try:
+        with urllib.request.urlopen(f"{url}/api/tags", timeout=8) as r:
+            j = json.loads(r.read().decode("utf-8","replace"))
+        models = [m.get("name") for m in j.get("models", []) if m.get("name")]
+        return jsonify({"ok": True, "url": url, "models": models})
+    except Exception as e:
+        return jsonify({"ok": False, "url": url, "err": str(e)}), 502
+
+@app.route("/api/llm/config", methods=["GET","POST"])
+def llm_config():
+    if request.method == "POST":
+        p = request.get_json(silent=True) or request.form.to_dict()
+        url = _norm_url(p.get("url",""), p.get("ip",""), p.get("port",""))
+        if url:
+            LLM_CFG["url"] = url
+        if (p.get("model") or "").strip():
+            LLM_CFG["model"] = p.get("model").strip()
+        if (p.get("backend") or "").strip():
+            LLM_CFG["backend"] = p.get("backend").strip()
+        elif url:
+            # 서버를 지정했으면 자동으로 실제 모델 모드로 전환.
+            LLM_CFG["backend"] = "ollama"
+        return jsonify({"ok": True, "config": LLM_CFG})
+    return jsonify({"config": LLM_CFG})
+
 # ----------- API: chat (V01-V05, V08, V16, V17, V20) -----------
 @app.route("/api/chat", methods=["POST"])
 def api_chat():
@@ -274,8 +333,12 @@ def api_chat():
         system += f"\n\n[client-system]\n{extra_system}"  # V01 명시적 override
 
     retrieved = _retrieve_rag(user_msg, k=3)
+    # 대화 중 모델 토글: 클라이언트가 보낸 model 을 이번 요청에 한해 사용.
+    req_model = (payload.get("model") or "").strip() or None
+    # 서버가 지정돼 있고(모델 선택했거나 전역이 ollama) → 실제 모델, 아니면 mock 폴백.
+    backend = "ollama" if (LLM_CFG["url"] and (req_model or LLM_CFG["backend"] == "ollama")) else "mock"
     try:
-        answer = call_llm(system, user_msg, retrieved)
+        answer = call_llm(system, user_msg, retrieved, backend=backend, model=req_model)
     except Exception as e:
         # V17 verbose
         return jsonify({"error":"llm fail","trace":traceback.format_exc(), "system_prompt": system}), 500
@@ -378,7 +441,7 @@ def tool_update_user():
 def model_export():
     # V13 model theft (mock weights)
     return jsonify({
-      "model": OLLAMA_MODEL,
+      "model": LLM_CFG["model"],
       "weights_uri": "/static/weights.bin",
       "vocab_size": 50257,
       "params": "synthetic-export-allowed-no-auth"
@@ -398,7 +461,7 @@ def dataset():
 @app.route("/api/debug/prompt")
 def debug_prompt():
     # V05 system prompt leak
-    return jsonify({"system": SYSTEM_PROMPT, "model": OLLAMA_MODEL, "openai_key": OPENAI_API_KEY[:10]+"..."})
+    return jsonify({"system": SYSTEM_PROMPT, "model": LLM_CFG["model"], "openai_key": OPENAI_API_KEY[:10]+"..."})
 
 # ----------- Conversation import (V21 pickle) -----------
 @app.route("/api/conv/import", methods=["POST"])
@@ -413,7 +476,7 @@ def conv_import():
 # ----------- 헬스 -----------
 @app.route("/_health")
 def health():
-    return {"ok": True, "service": "aicompanion", "vulns": 25, "backend": LLM_BACKEND}
+    return {"ok": True, "service": "aicompanion", "vulns": 25, "backend": LLM_CFG["backend"]}
 
 @app.errorhandler(500)
 def err500(e):
@@ -423,5 +486,5 @@ def err500(e):
 if __name__ == "__main__":
     init_db()
     port = int(os.environ.get("PORT","3005"))
-    print(f"[aicompanion] :{port} (25 vulns, backend={LLM_BACKEND})")
+    print(f"[aicompanion] :{port} (25 vulns, backend={LLM_CFG['backend']})")
     app.run(host="0.0.0.0", port=port, debug=False)
