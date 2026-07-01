@@ -208,9 +208,15 @@ def _ollama(prompt, url=None, model=None):
             data=json.dumps({"model": mdl, "prompt": prompt, "stream": False}).encode(),
             headers={"Content-Type":"application/json"})
         # CPU 추론은 첫 응답이 느릴 수 있어 넉넉히
-        with urllib.request.urlopen(req, timeout=120) as r:
+        with urllib.request.urlopen(req, timeout=180) as r:
             j = json.loads(r.read().decode("utf-8","replace"))
-            return j.get("response","")
+        resp = j.get("response", "") or ""
+        # reasoning 모델의 <think>…</think> 추론 블록 제거
+        # (raw-HTML 렌더 V08 에서 <, > 가 태그로 먹혀 답이 안 보이는 문제 방지)
+        resp = re.sub(r"(?is)<think>.*?</think>", "", resp).strip()
+        if resp.lower().startswith("<think>") and "</think>" not in resp.lower():
+            resp = resp[len("<think>"):].strip()  # 닫히지 않은 think 만 온 경우
+        return resp or "(모델이 빈 응답을 반환했습니다 — 다른 모델을 선택하거나 다시 시도하세요)"
     except Exception as e:
         return f"[ollama err: {e}]"
 
