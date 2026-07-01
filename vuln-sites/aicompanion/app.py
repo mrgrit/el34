@@ -68,6 +68,31 @@ LLM_CFG = {
     "model":   os.environ.get("OLLAMA_MODEL", "gemma3:4b"),
 }
 
+# admin 설정 영속화 — 컨테이너 재기동/재빌드 후에도 서버·모델 유지.
+LLM_CFG_PATH = os.environ.get("LLM_CFG_PATH", "")
+
+def _save_cfg():
+    if not LLM_CFG_PATH:
+        return
+    try:
+        with open(LLM_CFG_PATH, "w") as f:
+            json.dump(LLM_CFG, f)
+    except Exception:
+        pass
+
+def _load_cfg():
+    if LLM_CFG_PATH and os.path.exists(LLM_CFG_PATH):
+        try:
+            with open(LLM_CFG_PATH) as f:
+                saved = json.load(f)
+            for k in ("backend", "url", "model"):
+                if k in saved and saved[k] is not None:
+                    LLM_CFG[k] = saved[k]
+        except Exception:
+            pass
+
+_load_cfg()
+
 # 모델 크기 제한 — 4B '이상'(>=) 모델은 선택/사용 불가 (교실 CPU 추론 부하 방지).
 MAX_MODEL_PARAM_B = float(os.environ.get("MAX_MODEL_PARAM_B", "4"))
 _SIZE_RE = re.compile(r"(\d+(?:\.\d+)?)\s*[bB]\b")
@@ -369,6 +394,7 @@ def llm_config():
         elif url:
             # 서버를 지정했으면 자동으로 실제 모델 모드로 전환.
             LLM_CFG["backend"] = "ollama"
+        _save_cfg()   # 재기동 후에도 유지되도록 영속화
         return jsonify({"ok": True, "config": LLM_CFG})
     return jsonify({"config": LLM_CFG})
 

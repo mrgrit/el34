@@ -421,6 +421,9 @@ services:
       LLM_BACKEND: ${AICOMPANION_LLM_BACKEND:-mock}
       OLLAMA_URL: ${LLM_BASE_URL:-}
       OLLAMA_MODEL: ${LLM_MODEL:-gemma3:4b}
+      LLM_CFG_PATH: /data/llm_cfg.json   # admin 설정 영속화 (재기동/재빌드 후 유지)
+    volumes:
+      - aicompanion-data:/data
     restart: unless-stopped
 
 
@@ -470,3 +473,4 @@ volumes:
   attacker-home:
   bastion-ssh-host:
   attacker-ssh-host:
+  aicompanion-data:
