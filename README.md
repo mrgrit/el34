@@ -211,7 +211,7 @@ RAM 4G 추가 + 디스크 50G+ 필요. KVM 가능한 호스트만 (`up --with-wi
 | `http://govportal.el34.lab/` | GovPortal (가상 정부) | 25 취약점 |
 | `http://mediforum.el34.lab/` | MediForum (가상 의료) | 게시판 + 업로드 |
 | `http://admin.el34.lab/` | AdminConsole | RCE/XXE/SSRF/pickle |
-| `http://ai.el34.lab/` | AICompanion | OWASP LLM Top 10 (mock LLM) |
+| `http://ai.el34.lab/` | AICompanion | OWASP LLM Top 10 (mock 기본 / 실제 LLM 연결 가능 — 아래 참고) |
 | `http://portal.el34.lab/` | **관리 포털** | 컨테이너 / 네트워크 / 로그 / WAF / IDS / Audit / Agent |
 | `http://siem.el34.lab/` | **SIEM (Wazuh lite)** | 알림 + Top rule + level 분포 |
 | `http://bastion.el34.lab/health` | Bastion API | 헬스 체크 (웹 UI 없음 — `/health` 만) |
@@ -228,6 +228,25 @@ RAM 4G 추가 + 디스크 50G+ 필요. KVM 가능한 호스트만 (`up --with-wi
 > **직접 포트 접근도 살아있음** (관리/디버그용): `http://<VM_IP>:8000/` (portal),
 > `http://<VM_IP>:5601/` (siem), `http://<VM_IP>:9100/health` (bastion).
 > 이 경로는 ModSecurity 검사를 거치지 않음 — 학습 비교용.
+
+#### AICompanion — 실제 LLM 연결 & 모델 공격 시연
+
+기본은 **mock**(키워드 시뮬레이션)이라 LLM 없이도 25개 취약점이 결정론적으로 동작한다.
+실제 모델로 붙이려면 `http://ai.el34.lab/` 로그인(`admin/admin`) 후:
+
+1. **⚙ 모델설정**(`/admin`) → AI 모델 서빙 서버 **IP·포트** 입력(ollama) → *연결 & 모델 불러오기*
+   → `ollama list`(=`/api/tags`)의 모델을 선택·저장하면 자동으로 실제 모델 모드로 전환.
+2. **대화** 화면 상단 🧠 토글로 대화 도중 모델 전환 가능.
+3. 설정은 `aicompanion-data` 볼륨(`/data/llm_cfg.json`)에 **영속** — 재기동/재빌드 후에도 유지.
+   (배포 기본값은 mock이므로, 새 호스트에 배포하면 처음엔 다시 mock 상태)
+
+- **4B 이상 모델은 자동 제외**(교실 CPU 부하 방지) — 목록/저장/대화 3곳에서 차단. `MAX_MODEL_PARAM_B` 로 조정.
+- **ai.el34.lab vhost 는 ModSecurity `DetectionOnly`** (juice 와 동일) — 로그/프롬프트에 든
+  SQLi·인젝션 문자열이 WAF 에 403 으로 막히지 않고 모델까지 전달되어 **LLM 프롬프트 인젝션 시연**이 가능.
+  (다른 취약 웹 vhost 는 전역 `SecRuleEngine On` 유지 → 웹 WAF 차단 실습은 dvwa 등에서.)
+- **로컬 ollama** 를 쓰려면(외부 서버가 없을 때): `docker compose -f docker-compose.yaml -f docker-compose.ollama.yml up -d ollama`
+  후 `docker exec el34-ollama ollama pull <4B미만-모델>` (예: `llama3.2:1b`, `llama3.2:3b`),
+  `/admin` 에서 `10.20.30.220:11434` 지정. (el34.sh 기본 기동에는 미포함 — 선택.)
 
 ### 2. SSH (Bastion ProxyJump 모델)
 
