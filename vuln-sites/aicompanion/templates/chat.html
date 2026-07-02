@@ -1,50 +1,94 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="card" style="min-height:420px;">
-  <h2 style="margin-top:0;">💬 AICompanion 대화</h2>
+<style>
+  /* ── 대화 레이아웃 ── */
+  .chatcard{padding:0;overflow:hidden}
+  .bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--border);background:#01141b}
+  .bar .lbl{font-size:12px;color:var(--muted);font-weight:600}
+  .bar select{width:auto;min-width:180px;margin:0;padding:6px 9px}
+  .pill{background:#02141a;border:1px solid var(--border);color:var(--muted);padding:5px 11px;border-radius:20px;
+        cursor:pointer;font-size:12px;font-weight:600;transition:.12s;white-space:nowrap}
+  .pill:hover{border-color:var(--acc);color:var(--acc)}
+  #thread{padding:16px 14px;min-height:300px;max-height:56vh;overflow:auto}
+  .composer{padding:12px 14px;border-top:1px solid var(--border)}
+  /* ── 프리셋 패널 ── */
+  .preset{border-bottom:1px solid var(--border);background:#04202a}
+  .preset > summary{list-style:none;cursor:pointer;padding:10px 14px;display:flex;align-items:center;gap:8px;
+        font-size:13px;color:var(--acc);font-weight:600}
+  .preset > summary::-webkit-details-marker{display:none}
+  .preset .chev{margin-left:auto;color:var(--muted);transition:transform .2s;font-size:11px}
+  .preset[open] .chev{transform:rotate(180deg)}
+  .pbody{padding:2px 14px 14px}
+  .tabs{display:flex;gap:6px;margin-bottom:10px}
+  .tab{flex:0 0 auto;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:#02141a;
+       color:var(--muted);cursor:pointer;font-size:12px;font-weight:700;transition:.12s}
+  .tab.on.atk{background:rgba(220,38,38,.16);border-color:var(--danger);color:#fecaca}
+  .tab.on.def{background:rgba(22,163,74,.16);border-color:#16a34a;color:#bbf7d0}
+  .tab .n{opacity:.7;font-weight:600;margin-left:3px}
+  .pfilter{width:100%;margin:0 0 12px;padding:8px 11px;font-size:13px}
+  .pgroup{font-size:10px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin:10px 0 6px}
+  .grid{display:flex;flex-wrap:wrap;gap:7px}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:#02141a;border:1px solid var(--border);
+        border-left:3px solid var(--muted);color:var(--txt);padding:7px 11px;border-radius:8px;cursor:pointer;
+        font-size:12px;line-height:1.2;transition:.12s}
+  .chip:hover{border-color:var(--acc);background:#062733;transform:translateY(-1px)}
+  .chip.atk{border-left-color:var(--danger)}
+  .chip.def{border-left-color:#16a34a}
+  .chip .wk{font-size:10px;font-weight:800;color:var(--muted);background:#0b2f3a;padding:1px 6px;border-radius:10px}
+  .empty{color:var(--muted);font-size:12px;padding:8px 0}
+</style>
 
-  <!-- 대화 중 모델 토글 -->
-  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;padding:8px;background:#01101a;border:1px solid var(--border);border-radius:6px;">
-    <span class="muted">🧠 모델</span>
-    <select id="modelsel" style="width:auto;min-width:190px;margin:0;"></select>
-    <button class="btn btn-sec" type="button" onclick="loadModels()" style="padding:6px 10px;">↻ 새로고침</button>
+<div class="card chatcard" style="min-height:460px;">
+  <!-- 모델 툴바 -->
+  <div class="bar">
+    <span class="lbl">🧠 모델</span>
+    <select id="modelsel"></select>
+    <button class="pill" type="button" onclick="loadModels()">↻ 새로고침</button>
     <span id="llmstat" class="tag">…</span>
-    <a href="/admin" class="muted" style="margin-left:auto;">⚙ 서버 설정</a>
+    <a href="/admin" class="pill" style="margin-left:auto;">⚙ 서버 설정</a>
   </div>
 
-  <!-- 시스템 프롬프트 원클릭 프리셋 (AI Safety 교안) -->
-  <details id="presetbox" style="margin-bottom:10px;">
-    <summary class="muted" style="cursor:pointer;">🎯 시스템 프롬프트 프리셋 (AI Safety 교안) — 클릭 시 system prompt + 권장 공격 프롬프트 자동 로드</summary>
-    <div id="presets" style="margin-top:8px;"></div>
+  <!-- 시스템 프롬프트 원클릭 프리셋 -->
+  <details class="preset" id="presetbox" open>
+    <summary>🎯 시스템 프롬프트 프리셋 <span class="muted" style="font-weight:400;">· AI Safety 교안 · 클릭 시 system + 공격 자동 로드</span><span class="chev">▼</span></summary>
+    <div class="pbody">
+      <div class="tabs">
+        <button class="tab atk on" type="button" data-kind="attack" onclick="setKind('attack')">⚔️ 공격형<span class="n" id="n-attack"></span></button>
+        <button class="tab def" type="button" data-kind="defense" onclick="setKind('defense')">🛡️ 방어형<span class="n" id="n-defense"></span></button>
+      </div>
+      <input class="pfilter" id="pfilter" placeholder="🔎 프리셋 검색 (라벨·주차·공격유형)" oninput="renderPresets()">
+      <div id="presets"></div>
+    </div>
   </details>
 
-  <div id="thread" style="min-height:300px;max-height:60vh;overflow:auto;padding:8px;"></div>
-  <hr style="border-color:var(--border);">
-  <form id="cf" onsubmit="return false;">
-    <textarea id="msg" placeholder="메시지를 입력하세요..." required></textarea>
-    <details id="sysdetails" style="margin:6px 0 8px;">
-      <summary class="muted">고급 옵션 (system prompt prefix) <span id="sysactive" class="tag" style="display:none;"></span></summary>
-      <textarea id="sysadd" placeholder="(client-system) 추가 지시사항" style="margin-top:6px;min-height:50px;"></textarea>
-    </details>
-    <button class="btn" type="submit" onclick="send()">보내기</button>
-  </form>
+  <div id="thread"></div>
+
+  <div class="composer">
+    <form id="cf" onsubmit="return false;">
+      <textarea id="msg" placeholder="메시지를 입력하세요…" required></textarea>
+      <details id="sysdetails" style="margin:6px 0 8px;">
+        <summary class="muted">고급 옵션 (system prompt prefix) <span id="sysactive" class="tag" style="display:none;"></span></summary>
+        <textarea id="sysadd" placeholder="(client-system) 추가 지시사항" style="margin-top:6px;min-height:50px;"></textarea>
+      </details>
+      <button class="btn" type="submit" onclick="send()">보내기</button>
+    </form>
+  </div>
 </div>
 <script>
-let curModel = null;   // 대화에 사용할 현재 모델
-let backend  = 'mock';
+let curModel = null, backend = 'mock';
+let PRESETS = [], curKind = 'attack';
 
 async function loadCfg(){
   try{
     const j = await (await fetch('/api/llm/config')).json();
     const c = j.config || {};
     backend = c.backend; curModel = c.model;
-    updateStat(c);
-    await loadModels();
+    updateStat(c); await loadModels();
   }catch(e){ document.getElementById('llmstat').textContent = 'cfg 오류'; }
 }
 function updateStat(c){
-  const s = document.getElementById('llmstat');
-  s.textContent = (c.backend==='ollama') ? ('ollama · '+(curModel||c.model)) : 'mock (시뮬레이션)';
+  document.getElementById('llmstat').textContent =
+    (c.backend==='ollama') ? ('ollama · '+(curModel||c.model)) : 'mock (시뮬레이션)';
 }
 async function loadModels(){
   const sel = document.getElementById('modelsel');
@@ -58,15 +102,14 @@ async function loadModels(){
       curModel = sel.value;
     } else {
       const o=document.createElement('option');
-      o.value=curModel||''; o.textContent = curModel ? curModel+' (서버 미연결)' : '(모델 없음 — ⚙ 서버 설정 필요)';
+      o.value=curModel||''; o.textContent = curModel ? curModel+' (서버 미연결)' : '(모델 없음 — ⚙ 서버 설정)';
       sel.appendChild(o);
     }
-  }catch(e){ /* ignore */ }
+  }catch(e){}
   updateStat({backend:backend});
 }
 document.getElementById('modelsel').addEventListener('change', e=>{
-  curModel = e.target.value;                       // 대화 도중 모델 전환
-  updateStat({backend:backend});
+  curModel = e.target.value; updateStat({backend:backend});
 });
 
 async function send(){
@@ -75,9 +118,9 @@ async function send(){
   if(!m) return;
   add('u', m);
   document.getElementById('msg').value='';
-  const pend = addPending();                        // 응답 대기 표시 (느린 모델 대비)
+  const pend = addPending();
   const payload = {message:m, system:sys};
-  if(curModel) payload.model = curModel;            // 선택 모델을 이번 요청에 사용
+  if(curModel) payload.model = curModel;
   try{
     const r = await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},
       body: JSON.stringify(payload)});
@@ -85,17 +128,13 @@ async function send(){
     pend.remove();
     if(!r.ok){ add('a', '⚠️ 오류: ' + (j.error || j.err || ('HTTP '+r.status))); return; }
     add('a', (j.answer && j.answer.trim()) ? j.answer : '(빈 응답)', j.retrieved);
-  }catch(e){
-    pend.remove();
-    add('a', '⚠️ 요청 실패: ' + e);
-  }
+  }catch(e){ pend.remove(); add('a', '⚠️ 요청 실패: ' + e); }
 }
 function addPending(){
   const t = document.getElementById('thread');
   const d = document.createElement('div');
   d.className = 'bubble a'; d.textContent = '⏳ 생성 중…';
-  t.appendChild(d); t.scrollTop = t.scrollHeight;
-  return d;
+  t.appendChild(d); t.scrollTop = t.scrollHeight; return d;
 }
 function add(who, text, retrieved){
   const t = document.getElementById('thread');
@@ -104,7 +143,6 @@ function add(who, text, retrieved){
   // V08: assistant 응답을 raw HTML 로 렌더 (insecure output handling)
   if(who==='a'){
     d.innerHTML = text;
-    // HTML 파싱으로 내용이 통째로 사라지면(예: <, > 가 태그로 먹힘) 원문을 그대로 표시
     if(!d.textContent.trim() && text && text.trim()) d.textContent = text;
   } else d.textContent = text;
   t.appendChild(d);
@@ -116,49 +154,63 @@ function add(who, text, retrieved){
   }
   t.scrollTop = t.scrollHeight;
 }
-// ── 시스템 프롬프트 프리셋 ──────────────────────────────
+
+// ── 프리셋 ──────────────────────────────
 async function loadPresets(){
-  let data;
-  try{ data = await (await fetch('/api/presets')).json(); }catch(e){ return; }
+  try{ const data = await (await fetch('/api/presets')).json(); PRESETS = data.presets || []; }
+  catch(e){ return; }
+  document.getElementById('n-attack').textContent  = PRESETS.filter(p=>p.kind==='attack').length;
+  document.getElementById('n-defense').textContent = PRESETS.filter(p=>p.kind==='defense').length;
+  renderPresets();
+}
+function setKind(k){
+  curKind = k;
+  document.querySelectorAll('.tab').forEach(t=> t.classList.toggle('on', t.dataset.kind===k));
+  renderPresets();
+}
+function renderPresets(){
   const wrap = document.getElementById('presets');
-  const list = (data && data.presets) || [];
-  if(!list.length){ wrap.innerHTML = '<span class="muted">프리셋이 없습니다.</span>'; return; }
-  // 과목별 그룹
+  const q = document.getElementById('pfilter').value.trim().toLowerCase();
+  let list = PRESETS.filter(p => (p.kind||'attack')===curKind);
+  if(q) list = list.filter(p => (p.label+' '+p.week+' '+p.attack_type+' '+p.system_prompt).toLowerCase().includes(q));
+  if(!list.length){ wrap.innerHTML = '<div class="empty">해당하는 프리셋이 없습니다.</div>'; return; }
+  const cls = curKind==='attack' ? 'atk' : 'def';
   const groups = {};
-  list.forEach(p => { (groups[p.course] = groups[p.course] || []).push(p); });
+  list.forEach(p => { (groups[p.course]=groups[p.course]||[]).push(p); });
   wrap.innerHTML = '';
   Object.keys(groups).sort().forEach(course => {
-    const h = document.createElement('div');
-    h.className = 'muted'; h.style.margin = '6px 0 4px'; h.textContent = '▸ ' + course;
+    const h = document.createElement('div'); h.className='pgroup'; h.textContent = course;
     wrap.appendChild(h);
-    const row = document.createElement('div');
-    row.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;';
+    const g = document.createElement('div'); g.className='grid';
     groups[course].forEach(p => {
-      const b = document.createElement('button');
-      b.type = 'button'; b.className = 'btn btn-sec';
-      b.style.cssText = 'padding:5px 9px;font-size:12px;';
-      b.textContent = (p.week ? p.week + ' · ' : '') + (p.label || p.attack_type || 'preset');
-      b.title = p.system_prompt;
-      b.onclick = () => applyPreset(p);
-      row.appendChild(b);
+      const c = document.createElement('button');
+      c.type='button'; c.className = 'chip '+cls;
+      c.title = 'SYSTEM:\n'+p.system_prompt + (p.attack_prompt? '\n\nATTACK:\n'+p.attack_prompt : '') + (p.expect? '\n\n성공마커: '+p.expect : '');
+      c.innerHTML = '<span class="wk">'+ (p.week||'') +'</span>' + escapeHtml(p.label || p.attack_type || 'preset');
+      c.onclick = () => applyPreset(p);
+      g.appendChild(c);
     });
-    wrap.appendChild(row);
+    wrap.appendChild(g);
   });
 }
+function escapeHtml(s){ return (s||'').replace(/[&<>"]/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])); }
+
 function applyPreset(p){
   const ta = document.getElementById('sysadd');
   ta.value = p.system_prompt;
-  document.getElementById('sysdetails').open = true;   // 적용된 system prompt 펼쳐 보이기
+  document.getElementById('sysdetails').open = true;
   const msg = document.getElementById('msg');
   const hl = [ta];
-  if(p.attack_prompt){ msg.value = p.attack_prompt; hl.push(msg); }  // 권장 공격 프롬프트도 자동 로드
+  if(p.attack_prompt){ msg.value = p.attack_prompt; hl.push(msg); }
   const tag = document.getElementById('sysactive');
   tag.style.display = '';
-  tag.textContent = '프리셋: ' + (p.label || p.week || '') + (p.expect ? ' · 성공마커: ' + p.expect : '');
+  const kindTxt = (p.kind==='defense') ? '🛡️방어' : '⚔️공격';
+  tag.textContent = kindTxt+' · '+(p.label||p.week||'') + (p.expect ? ' · 성공마커: '+p.expect : '');
   hl.forEach(el => { el.style.transition='none'; el.style.background='#0f3a20';
     setTimeout(()=>{ el.style.transition='background .8s'; el.style.background=''; }, 60); });
   msg.focus();
 }
+
 loadCfg();
 loadPresets();
 </script>
