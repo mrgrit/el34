@@ -12,12 +12,18 @@
     <a href="/admin" class="muted" style="margin-left:auto;">⚙ 서버 설정</a>
   </div>
 
+  <!-- 시스템 프롬프트 원클릭 프리셋 (AI Safety 교안) -->
+  <details id="presetbox" style="margin-bottom:10px;">
+    <summary class="muted" style="cursor:pointer;">🎯 시스템 프롬프트 프리셋 (AI Safety 교안) — 클릭 시 아래 system prompt 에 로드</summary>
+    <div id="presets" style="margin-top:8px;"></div>
+  </details>
+
   <div id="thread" style="min-height:300px;max-height:60vh;overflow:auto;padding:8px;"></div>
   <hr style="border-color:var(--border);">
   <form id="cf" onsubmit="return false;">
     <textarea id="msg" placeholder="메시지를 입력하세요..." required></textarea>
-    <details style="margin:6px 0 8px;">
-      <summary class="muted">고급 옵션 (system prompt prefix)</summary>
+    <details id="sysdetails" style="margin:6px 0 8px;">
+      <summary class="muted">고급 옵션 (system prompt prefix) <span id="sysactive" class="tag" style="display:none;"></span></summary>
       <textarea id="sysadd" placeholder="(client-system) 추가 지시사항" style="margin-top:6px;min-height:50px;"></textarea>
     </details>
     <button class="btn" type="submit" onclick="send()">보내기</button>
@@ -110,6 +116,46 @@ function add(who, text, retrieved){
   }
   t.scrollTop = t.scrollHeight;
 }
+// ── 시스템 프롬프트 프리셋 ──────────────────────────────
+async function loadPresets(){
+  let data;
+  try{ data = await (await fetch('/api/presets')).json(); }catch(e){ return; }
+  const wrap = document.getElementById('presets');
+  const list = (data && data.presets) || [];
+  if(!list.length){ wrap.innerHTML = '<span class="muted">프리셋이 없습니다.</span>'; return; }
+  // 과목별 그룹
+  const groups = {};
+  list.forEach(p => { (groups[p.course] = groups[p.course] || []).push(p); });
+  wrap.innerHTML = '';
+  Object.keys(groups).sort().forEach(course => {
+    const h = document.createElement('div');
+    h.className = 'muted'; h.style.margin = '6px 0 4px'; h.textContent = '▸ ' + course;
+    wrap.appendChild(h);
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;';
+    groups[course].forEach(p => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'btn btn-sec';
+      b.style.cssText = 'padding:5px 9px;font-size:12px;';
+      b.textContent = (p.week ? p.week + ' · ' : '') + (p.label || p.attack_type || 'preset');
+      b.title = p.system_prompt;
+      b.onclick = () => applyPreset(p);
+      row.appendChild(b);
+    });
+    wrap.appendChild(row);
+  });
+}
+function applyPreset(p){
+  const ta = document.getElementById('sysadd');
+  ta.value = p.system_prompt;
+  document.getElementById('sysdetails').open = true;   // 적용된 system prompt 펼쳐 보이기
+  const tag = document.getElementById('sysactive');
+  tag.style.display = ''; tag.textContent = '프리셋: ' + (p.label || p.week || '');
+  ta.style.transition='none'; ta.style.background='#0f3a20';
+  setTimeout(()=>{ ta.style.transition='background .8s'; ta.style.background=''; }, 60);
+  document.getElementById('msg').focus();
+}
 loadCfg();
+loadPresets();
 </script>
 {% endblock %}

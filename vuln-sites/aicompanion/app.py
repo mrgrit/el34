@@ -398,6 +398,19 @@ def llm_config():
         return jsonify({"ok": True, "config": LLM_CFG})
     return jsonify({"config": LLM_CFG})
 
+# ----------- 시스템 프롬프트 프리셋 (AI Safety 교안) -----------
+PRESETS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "presets.json")
+
+@app.route("/api/presets")
+def api_presets():
+    # 교안(ai-safety/ai-safety-adv)에서 추출한 system prompt 프리셋 목록.
+    try:
+        with open(PRESETS_PATH, encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception as e:
+        data = {"presets": [], "err": str(e)}
+    return jsonify(data)
+
 # ----------- API: chat (V01-V05, V08, V16, V17, V20) -----------
 @app.route("/api/chat", methods=["POST"])
 def api_chat():
