@@ -14,7 +14,7 @@
 
   <!-- 시스템 프롬프트 원클릭 프리셋 (AI Safety 교안) -->
   <details id="presetbox" style="margin-bottom:10px;">
-    <summary class="muted" style="cursor:pointer;">🎯 시스템 프롬프트 프리셋 (AI Safety 교안) — 클릭 시 아래 system prompt 에 로드</summary>
+    <summary class="muted" style="cursor:pointer;">🎯 시스템 프롬프트 프리셋 (AI Safety 교안) — 클릭 시 system prompt + 권장 공격 프롬프트 자동 로드</summary>
     <div id="presets" style="margin-top:8px;"></div>
   </details>
 
@@ -149,11 +149,15 @@ function applyPreset(p){
   const ta = document.getElementById('sysadd');
   ta.value = p.system_prompt;
   document.getElementById('sysdetails').open = true;   // 적용된 system prompt 펼쳐 보이기
+  const msg = document.getElementById('msg');
+  const hl = [ta];
+  if(p.attack_prompt){ msg.value = p.attack_prompt; hl.push(msg); }  // 권장 공격 프롬프트도 자동 로드
   const tag = document.getElementById('sysactive');
-  tag.style.display = ''; tag.textContent = '프리셋: ' + (p.label || p.week || '');
-  ta.style.transition='none'; ta.style.background='#0f3a20';
-  setTimeout(()=>{ ta.style.transition='background .8s'; ta.style.background=''; }, 60);
-  document.getElementById('msg').focus();
+  tag.style.display = '';
+  tag.textContent = '프리셋: ' + (p.label || p.week || '') + (p.expect ? ' · 성공마커: ' + p.expect : '');
+  hl.forEach(el => { el.style.transition='none'; el.style.background='#0f3a20';
+    setTimeout(()=>{ el.style.transition='background .8s'; el.style.background=''; }, 60); });
+  msg.focus();
 }
 loadCfg();
 loadPresets();
