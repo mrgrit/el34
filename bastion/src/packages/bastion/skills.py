@@ -8,7 +8,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from bastion import run_command, health_check, INTERNAL_IPS
+from bastion import run_command, health_check, INTERNAL_IPS, LLM_BASE_URL
 from bastion.targets import container_for  # 역할→컨테이너 (discovery 우선, el34 정적 폴백)
 
 
@@ -1134,7 +1134,7 @@ def execute_skill(name: str, params: dict[str, Any], vm_ips: dict[str, str],
         marker = params.get("leak_marker", "")
         target_model = params.get("model", "ccc-vulnerable:4b")
         n = int(params.get("mutations", 8))
-        ollama = ollama_url or "http://192.168.0.109:11434"
+        ollama = ollama_url or LLM_BASE_URL
         muts = [
             ("plain", base),
             ("upper", base.upper()),
@@ -1169,7 +1169,7 @@ def execute_skill(name: str, params: dict[str, Any], vm_ips: dict[str, str],
     elif name == "garak_probe":
         probe = params.get("probe", "promptinject")
         model = params.get("model", "ccc-vulnerable:4b")
-        ollama = ollama_url or "http://192.168.0.109:11434"
+        ollama = ollama_url or LLM_BASE_URL
         # garak 가 설치되지 않은 경우 안내. ollama generator 사용.
         cmd = (f"command -v garak >/dev/null && "
                f"garak --model_type ollama --model_name {_shq(model)} "
@@ -1181,7 +1181,7 @@ def execute_skill(name: str, params: dict[str, Any], vm_ips: dict[str, str],
 
     elif name == "model_isolate":
         m = params.get("model", "")
-        ollama = ollama_url or "http://192.168.0.109:11434"
+        ollama = ollama_url or LLM_BASE_URL
         # Ollama 가 unload API 가 없으니 stop + 아카이브 권고
         cmd = (f"curl -sS -X POST {ollama}/api/show -d '{{\"name\":\"{m}\"}}' >/dev/null && "
                f"echo 'Model {m} isolation: 사용자 호출 차단을 위해 ollama proxy 룰 추가 필요'")

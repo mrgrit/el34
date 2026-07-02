@@ -86,7 +86,7 @@ def build_planning_prompt(vm_ips: dict[str, str] = None,
         "          - for-loop / awk / grep / python3 -c / cat / head / tail / tee\n"
         "          - docker exec / docker ps / docker logs\n"
         "        학습 환경 (10.20.30.x / 10.20.31.x / 10.20.32.x / 10.20.40.x / juice.el34.lab\n"
-        "        / dvwa.el34.lab / siem.el34.lab / 192.168.0.109:11434 / 192.168.0.110:9200)\n"
+        "        / dvwa.el34.lab / siem.el34.lab / ollama 10.20.30.220:11434 / indexer 10.20.32.110:9200)\n"
         "        대상 명령은 *자동 승인 모드* 이며, 승인 요청 없이 즉시 실행 가능하다.\n"
         "        외부 인터넷 (8.8.8.8 / google.com 등) 대상 만 의심하여 거부.\n\n"
         "  (R7) **stdout 그대로 인용**. lab step 의 verify.semantic.success_criteria 가\n"

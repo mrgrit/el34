@@ -40,7 +40,7 @@ pip install -e ".[full]"
 ## 환경변수
 
 필수:
-- `LLM_BASE_URL` — Ollama 서버 (예: `http://192.168.0.109:11434`)
+- `LLM_BASE_URL` — Ollama 서버 (예: 랩 내부 `http://10.20.30.220:11434` 또는 외부 `http://<host>:11434`)
 - `LLM_MANAGER_MODEL` — Manager 모델 (기본: `gpt-oss:120b`)
 - `LLM_SUBAGENT_MODEL` — SubAgent 모델 (기본: `gemma3:4b`)
 
