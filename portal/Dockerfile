@@ -1,9 +1,12 @@
 # el34 portal — FastAPI + Jinja2 + HTMX 기반 관리 대시보드
 FROM python:3.12-slim
 
+# 시각: 전체 el34 컨테이너 KST(Asia/Seoul) 통일.
+ENV TZ=Asia/Seoul
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        curl ca-certificates && \
+        curl ca-certificates tzdata && \
+    ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone && \
     rm -rf /var/lib/apt/lists/*
 
 COPY portal/requirements.txt /app/requirements.txt

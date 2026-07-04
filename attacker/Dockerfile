@@ -5,9 +5,11 @@ ENV DEBIAN_FRONTEND=noninteractive
 # gnupg = msfinstall (line 65 의 gpg --dearmor) 필수. 누락 시 keyring 파일 미생성 →
 # apt repo NO_PUBKEY → metasploit-framework install 실패 → msfconsole 누락 (W01 S1 fail).
 # 2026-05-18 attack W01 S1 실측 검증 에서 발견. silent skip 금지.
+# 시각: 전체 el34 컨테이너 KST(Asia/Seoul) 통일.
+ENV TZ=Asia/Seoul
 RUN apt-get update && apt-get install -y --no-install-recommends \
         openssh-server sudo iputils-ping iproute2 \
-        rsyslog \
+        rsyslog tzdata \
         gnupg \
         nmap hydra sqlmap nikto \
         dirb gobuster john hashcat \
@@ -19,6 +21,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates \
         whatweb httpie ruby ruby-rubygems unzip \
         sshpass yara && \
+    ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone && \
     rm -rf /var/lib/apt/lists/*
 
 # web-vuln 학습 의 핵심 추가 도구 — attacker 의 ext network 가 apt mirror 차단 가능성 있어

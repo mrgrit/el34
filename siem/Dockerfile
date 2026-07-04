@@ -1,5 +1,9 @@
 FROM wazuh/wazuh-manager:4.10.0
 
+# 시각: 전체 el34 컨테이너 KST(Asia/Seoul) 통일 — Wazuh alerts.json 타임스탬프 KST.
+ENV TZ=Asia/Seoul
+RUN ln -snf /usr/share/zoneinfo/Asia/Seoul /etc/localtime && echo Asia/Seoul > /etc/timezone
+
 # openssh-server + sudo + iproute (ss 명령) + procps (ps/top/네트워크 진단)
 RUN yum install -y openssh-server openssh-clients sudo passwd hostname iproute procps-ng jq && yum clean all && \
     ssh-keygen -A && \

@@ -20,6 +20,13 @@ name: el34
 x-web-host: &web_host "192.168.0.161"      # ens37 — 웹/dmz 외부 진입 IP
 x-int-host: &int_host "192.168.136.145"    # ens38 — 내부전용 GUI/SIEM 바인딩 IP
 
+# 시각(타임존) 통일 — 전체 컨테이너 KST(Asia/Seoul). 배포 시부터 로그 타임스탬프 일관성.
+#   · 우리 빌드 이미지: Dockerfile 에 tzdata + /etc/localtime 심볼릭링크 내장(호스트 무관).
+#   · 서드파티 이미지(juiceshop/dvwa/wazuh-*): TZ env + zoneinfo 마운트로 KST 강제.
+#     마운트 소스는 zoneinfo 실파일 → 호스트 TZ 와 무관하게 항상 Asia/Seoul 로 고정.
+x-tz: &tz "Asia/Seoul"
+x-tz-localtime: &tz_localtime "/usr/share/zoneinfo/Asia/Seoul:/etc/localtime:ro"
+
 services:
 
   # ╭─ ext tier ─────────────────────────────────────────────╮
@@ -206,10 +213,12 @@ services:
     hostname: wazuh.indexer
     environment:
       OPENSEARCH_JAVA_OPTS: "-Xms1g -Xmx1g"
+      TZ: *tz
     ulimits:
       memlock: { soft: -1, hard: -1 }
       nofile: { soft: 65536, hard: 65536 }
     volumes:
+      - *tz_localtime
       - wazuh-indexer-data:/var/lib/wazuh-indexer
       - ./wazuh-config/certs/root-ca.pem:/usr/share/wazuh-indexer/certs/root-ca.pem
       - ./wazuh-config/certs/wazuh.indexer-key.pem:/usr/share/wazuh-indexer/certs/wazuh.indexer.key
@@ -273,7 +282,9 @@ services:
       DASHBOARD_PASSWORD: kibanaserver
       API_USERNAME: wazuh-wui
       API_PASSWORD: MyS3cr37P450r.*-
+      TZ: *tz
     volumes:
+      - *tz_localtime
       - ./wazuh-config/certs/wazuh.dashboard.pem:/usr/share/wazuh-dashboard/certs/wazuh-dashboard.pem
       - ./wazuh-config/certs/wazuh.dashboard-key.pem:/usr/share/wazuh-dashboard/certs/wazuh-dashboard-key.pem
       - ./wazuh-config/certs/root-ca.pem:/usr/share/wazuh-dashboard/certs/root-ca.pem
@@ -364,6 +375,8 @@ services:
     hostname: juiceshop
     networks:
       int: { ipv4_address: 10.20.40.81 }
+    environment: { TZ: *tz }
+    volumes: [*tz_localtime]
     restart: unless-stopped
 
   dvwa:
@@ -372,6 +385,8 @@ services:
     hostname: dvwa
     networks:
       int: { ipv4_address: 10.20.40.82 }
+    environment: { TZ: *tz }
+    volumes: [*tz_localtime]
     restart: unless-stopped
 
   neobank:

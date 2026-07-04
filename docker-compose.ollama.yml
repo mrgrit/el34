@@ -14,8 +14,11 @@ services:
       - "${PORT_OLLAMA:-11434}:11434"
     volumes:
       - ollama-data:/root/.ollama
+      # 시각: KST(Asia/Seoul) 통일 — zoneinfo 실파일 마운트(호스트 TZ 무관 고정).
+      - "/usr/share/zoneinfo/Asia/Seoul:/etc/localtime:ro"
     environment:
       OLLAMA_HOST: "0.0.0.0:11434"
+      TZ: "Asia/Seoul"
     restart: unless-stopped
 
 volumes:

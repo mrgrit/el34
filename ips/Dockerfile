@@ -2,13 +2,16 @@
 FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
+# 시각: 전체 el34 컨테이너 KST(Asia/Seoul) 통일 — Suricata eve.json 타임스탬프 KST.
+ENV TZ=Asia/Seoul
 RUN apt-get update && apt-get install -y --no-install-recommends \
         openssh-server sudo iputils-ping iproute2 \
         suricata suricata-update \
-        nftables \
+        nftables tzdata \
         curl wget gnupg lsb-release \
         jq vim less tcpdump \
         ca-certificates && \
+    ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone && \
     rm -rf /var/lib/apt/lists/*
 
 # osquery (W07)

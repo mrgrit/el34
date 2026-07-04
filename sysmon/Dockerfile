@@ -1,8 +1,12 @@
 FROM jrei/systemd-ubuntu:22.04
 
+# 시각: 전체 el34 컨테이너 KST(Asia/Seoul) 통일 — Sysmon 이벤트 타임스탬프 KST.
+ENV TZ=Asia/Seoul
+
 # sysmon-for-linux + Microsoft apt repo (한 번만 build 시 설치 — startup 빠름)
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl gnupg ca-certificates openssh-server sudo && \
+    apt-get install -y --no-install-recommends curl gnupg ca-certificates openssh-server sudo tzdata && \
+    ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone && \
     rm -rf /var/lib/apt/lists/* && \
     curl -sSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg && \
     echo "deb [signed-by=/usr/share/keyrings/microsoft-prod.gpg arch=amd64] https://packages.microsoft.com/ubuntu/22.04/prod jammy main" > /etc/apt/sources.list.d/microsoft-prod.list && \

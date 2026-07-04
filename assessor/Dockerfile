@@ -2,9 +2,12 @@
 # portal 의 마운트·docker.sock 패턴을 참고하되 별도 경량 서비스로 분리.
 FROM python:3.12-slim
 
+# 시각: 전체 el34 컨테이너 KST(Asia/Seoul) 통일.
+ENV TZ=Asia/Seoul
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        curl ca-certificates && \
+        curl ca-certificates tzdata && \
+    ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone && \
     rm -rf /var/lib/apt/lists/*
 
 COPY assessor/requirements.txt /app/requirements.txt

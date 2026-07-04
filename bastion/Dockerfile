@@ -2,12 +2,15 @@
 FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
+# 시각: 전체 el34 컨테이너 KST(Asia/Seoul) 통일 — SIEM 상관분석/로그 타임스탬프 일관성.
+ENV TZ=Asia/Seoul
 RUN apt-get update && apt-get install -y --no-install-recommends \
         openssh-server sudo iputils-ping iproute2 dnsutils \
-        rsyslog \
+        rsyslog tzdata \
         curl wget jq python3 python3-pip ca-certificates \
         vim less tmux htop \
         gnupg lsb-release && \
+    ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone && \
     rm -rf /var/lib/apt/lists/*
 
 # Docker CLI (read-only docker.sock + docker ps 학생 가시화용)
