@@ -242,6 +242,9 @@ services:
     hostname: wazuh.manager
     depends_on: [wazuh-indexer]
     environment:
+      # Wazuh analysisd 는 alerts.json timestamp 오프셋을 PID1 의 TZ env 로 반영
+      # (/etc/localtime 만으로는 UTC 로 기록됨). 이미지 ENV TZ 와 이중 안전장치.
+      TZ: *tz
       INDEXER_URL: https://wazuh.indexer:9200
       INDEXER_USERNAME: admin
       INDEXER_PASSWORD: SecretPassword
