@@ -8,8 +8,13 @@
 set -euo pipefail
 cd "$(dirname "$(readlink -f "$0")")"
 
-WEB_HOST_IP="${WEB_HOST_IP:-192.168.0.161}"     # ens37 — 웹/dmz 외부 진입 (compose 와 일치)
-INT_HOST_IP="${INT_HOST_IP:-192.168.136.145}"   # ens38 — 내부전용 GUI/SIEM 바인딩
+# 웹 진입 publish 바인딩 IP.
+#   · 미지정: up 시 VM 실제 IP 자동감지 → .env(WEB_HOST_IP) 기록 (강의실/DHCP 브리지 VM).
+#     학생 hosts(el34.lab→VM_IP) 와 바인딩 IP 가 일치해 VM 밖에서 접속 가능.
+#   · 명시 지정(예: WEB_HOST_IP=192.168.0.161 ./el34.sh up): 그대로 존중 (2-NIC .151 레거시).
+WEB_HOST_IP_EXPLICIT=""; [ -n "${WEB_HOST_IP:-}" ] && WEB_HOST_IP_EXPLICIT=1
+WEB_HOST_IP="${WEB_HOST_IP:-}"
+INT_HOST_IP="${INT_HOST_IP:-192.168.136.145}"   # ens38 — 내부전용 GUI/SIEM 바인딩(dummy, VM 자체 Firefox)
 SUDO=""; [ "$(id -u)" = 0 ] || SUDO="sudo"
 REAL_USER="${SUDO_USER:-$(id -un)}"             # sudo 로 재실행돼도 원래 사용자 (파일 소유 복원용)
 
@@ -18,6 +23,157 @@ ensure_env() {
     [ -f .env ] || { cp .env.example .env; echo "[el34] .env 생성(.env.example 복사) — LLM_BASE_URL 등 값 확인 권장"; }
     grep -q '^LLM_MANAGER_MODEL='  .env || echo 'LLM_MANAGER_MODEL=gpt-oss:120b' >> .env
     grep -q '^LLM_SUBAGENT_MODEL=' .env || echo 'LLM_SUBAGENT_MODEL=qwen3:8b'   >> .env
+}
+
+detect_primary_ip() {
+    # 기본 라우트로 나가는 소스 IP = 브리지/DHCP 로 받은 VM 실제 IP (프롬프트 기본값 제안용)
+    ip -4 route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src"){print $(i+1); exit}}'
+}
+
+valid_ip() {
+    # IPv4 형식 + 각 옥텟 0-255 (0.0.0.0 도 허용 = 모든 인터페이스)
+    case "$1" in
+        *[!0-9.]*|.*|*.|*..*) return 1 ;;
+    esac
+    local o1 o2 o3 o4 IFS=.
+    read -r o1 o2 o3 o4 <<<"$1"
+    [ -n "$o4" ] && for o in "$o1" "$o2" "$o3" "$o4"; do [ "$o" -le 255 ] 2>/dev/null || return 1; done
+}
+
+_persist_web_host_ip() {   # $1 = ip. .env 에 기록(멱등).
+    if grep -qE '^WEB_HOST_IP=' .env 2>/dev/null; then
+        sed -i "s|^WEB_HOST_IP=.*|WEB_HOST_IP=$1|" .env
+    else
+        printf 'WEB_HOST_IP=%s\n' "$1" >> .env
+    fi
+}
+
+# 웹 진입 고정 IP 를 확정한다 — 최초 setup(install) 때 사용자에게 1회 물어 .env 에 고정.
+#   · 이후 up/재부팅은 .env 값을 그대로 사용(재질문 없음). 변경: WEB_HOST_IP_FORCE=1 ./el34.sh install
+#   · 명시 지정(WEB_HOST_IP=x ./el34.sh ...)은 프롬프트 없이 그 값으로 고정.
+#   · 비대화형(TTY 없음)이면 자동감지값으로 고정.
+resolve_web_host_ip() {
+    ensure_env   # .env 보장
+    local existing; existing="$(grep -E '^WEB_HOST_IP=' .env 2>/dev/null | tail -1 | cut -d= -f2- || true)"
+
+    # 1) 명시 env override — 프롬프트 없이 고정
+    if [ -n "$WEB_HOST_IP_EXPLICIT" ]; then
+        _persist_web_host_ip "$WEB_HOST_IP"
+        echo "[el34] 웹 진입 IP 고정(명시 지정): ${WEB_HOST_IP} (.env)"; return 0
+    fi
+    # 2) 이미 고정돼 있고 강제변경 아님 — 그대로 사용(쭉 고정)
+    if [ -n "$existing" ] && [ -z "${WEB_HOST_IP_FORCE:-}" ]; then
+        WEB_HOST_IP="$existing"
+        echo "[el34] 웹 진입 IP(고정) 사용: ${WEB_HOST_IP} (.env) — 변경: WEB_HOST_IP_FORCE=1 ./el34.sh install"
+        return 0
+    fi
+    # 3) 최초 지정(또는 강제 변경) — 사용자에게 1회 질의
+    local def; def="${existing:-$(detect_primary_ip || true)}"; def="${def:-0.0.0.0}"
+    local ans="" ip=""
+    if [ -t 0 ]; then
+        echo   "[el34] ── 웹 진입 고정 IP 지정 ──────────────────────────────"
+        echo   "  랜딩페이지/취약사이트(el34.lab)를 이 IP 로 노출하고, 이후 계속 이 값을 씁니다."
+        echo   "  · 학생 PC hosts 파일: 'el34.lab juice.el34.lab ... → 이 IP' 로 매핑"
+        echo   "  · 강의실 DHCP 환경이면 VM 에 이 IP 를 고정(static/DHCP 예약)해 두세요"
+        echo   "  · 0.0.0.0 입력 시 모든 인터페이스 바인딩(VM 실제 IP 로 접속)"
+        while :; do
+            printf "  웹 진입 IP [기본 %s]: " "$def"
+            read -r ans || ans=""
+            ip="${ans:-$def}"
+            if valid_ip "$ip"; then break; fi
+            echo "  ✗ '$ip' 는 올바른 IPv4 가 아닙니다. 다시 입력하세요."
+        done
+    else
+        ip="$def"
+        echo "[el34] 비대화형 — 웹 진입 IP 자동감지값으로 고정: ${ip}"
+    fi
+    WEB_HOST_IP="$ip"
+    _persist_web_host_ip "$WEB_HOST_IP"
+    echo "[el34] ✅ 웹 진입 IP 고정: ${WEB_HOST_IP} (.env 기록 — 이후 up/재부팅 모두 이 값)"
+}
+
+is_wireless_if() {   # $1=iface — 무선이면 return 0
+    [ -d "/sys/class/net/$1/wireless" ] && return 0
+    command -v iw >/dev/null 2>&1 && iw dev 2>/dev/null | grep -qw "$1" && return 0
+    return 1
+}
+
+# 입력한 웹 진입 IP 를 주 이더넷 IF 에 netplan static 으로 고정(재부팅에도 유지).
+#   · 유선(브리지 VM)만 지원 — 무선/미탐지/0.0.0.0 은 skip.
+#   · 적용 전 확인(원격 SSH 면 IP 변경으로 끊길 수 있어 콘솔 권장). 비대화형은 WEB_NETPLAN_STATIC=1 필요.
+#   · 롤백: /etc/netplan/99-el34-static.yaml 삭제 후 netplan apply (백업은 /etc/netplan/backup-el34/).
+#   · override: WEB_STATIC_IFACE / WEB_STATIC_GW / WEB_STATIC_PREFIX
+#   · 테스트 seam: EL34_NETPLAN_DIR / EL34_CLOUDCFG_DIR / EL34_NETPLAN_DRYRUN
+netplan_static() {
+    local ip="${1:-$WEB_HOST_IP}"
+    if [ -z "$ip" ] || [ "$ip" = "0.0.0.0" ]; then
+        echo "[el34] WEB_HOST_IP=${ip:-(미설정)} — 모든 인터페이스 바인딩이라 static 고정 불필요(skip)"; return 0
+    fi
+    if ! command -v netplan >/dev/null 2>&1; then
+        echo "[el34] netplan 미설치 — 자동 static 고정 skip. VM IP 를 수동으로 ${ip} 고정 권장"; return 0
+    fi
+    local IFACE GW PREFIX
+    IFACE="${WEB_STATIC_IFACE:-$(ip -4 route show default | awk '{print $5; exit}')}"
+    [ -z "$IFACE" ] && IFACE="$(ip -4 -br addr | awk '$1!="lo"{print $1; exit}')"
+    if [ -z "$IFACE" ]; then echo "[el34] WARN: 주 인터페이스 미탐지 — netplan static skip"; return 0; fi
+    if is_wireless_if "$IFACE"; then
+        echo "[el34] WARN: ${IFACE} 는 무선 — netplan static 자동설정 미지원(유선 브리지 VM 용). skip"; return 0
+    fi
+    GW="${WEB_STATIC_GW:-$(ip -4 route show default | awk '{for(i=1;i<=NF;i++) if($i=="via"){print $(i+1); exit}}')}"
+    PREFIX="${WEB_STATIC_PREFIX:-$(ip -4 -br addr show "$IFACE" 2>/dev/null | awk '{print $3}' | head -1 | cut -d/ -f2)}"
+    PREFIX="${PREFIX:-24}"
+    [ -z "$GW" ] && GW="$(echo "$ip" | cut -d. -f1-3).1"
+
+    local NPDIR="${EL34_NETPLAN_DIR:-/etc/netplan}"
+    local CCDIR="${EL34_CLOUDCFG_DIR:-/etc/cloud/cloud.cfg.d}"
+    local NP="$NPDIR/99-el34-static.yaml"
+
+    echo "[el34] ── netplan static 고정 계획 ──"
+    echo "        인터페이스 : ${IFACE}"
+    echo "        주소       : ${ip}/${PREFIX}"
+    echo "        게이트웨이 : ${GW}"
+    echo "        파일       : ${NP}"
+    if [ -z "${EL34_NETPLAN_DRYRUN:-}" ]; then
+        if [ -t 0 ]; then
+            printf "  적용할까요? 원격 SSH 세션이면 IP 변경으로 끊길 수 있습니다(콘솔 권장) [y/N]: "
+            local a; read -r a || a=""
+            case "$a" in y|Y|yes|YES) ;; *) echo "[el34] netplan static 취소 — WEB_HOST_IP 는 .env 에만 고정됨(VM IP 수동 고정 권장)"; return 0 ;; esac
+        elif [ -z "${WEB_NETPLAN_STATIC:-}" ]; then
+            echo "[el34] 비대화형 — 네트워크 자동 변경 보류. 적용하려면 WEB_NETPLAN_STATIC=1 로 재실행"; return 0
+        fi
+    fi
+
+    $SUDO mkdir -p "$NPDIR/backup-el34"
+    local f; for f in "$NPDIR"/*.yaml "$NPDIR"/*.yml; do [ -f "$f" ] && { $SUDO cp -n "$f" "$NPDIR/backup-el34/" 2>/dev/null || true; }; done
+    # cloud-init 네트워크 관리 비활성화 → static 이 재부팅에도 덮이지 않음
+    $SUDO mkdir -p "$CCDIR"
+    printf 'network: {config: disabled}\n' | $SUDO tee "$CCDIR/99-el34-disable-network.cfg" >/dev/null
+    $SUDO tee "$NP" >/dev/null <<YAML
+# el34 — 웹 진입 고정 IP static (자동 생성)
+# 롤백: 이 파일 삭제 후 'sudo netplan apply' (원본 백업: backup-el34/, cloud-init 재활성은
+#       /etc/cloud/cloud.cfg.d/99-el34-disable-network.cfg 삭제).
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    ${IFACE}:
+      dhcp4: false
+      addresses: [${ip}/${PREFIX}]
+      routes:
+        - to: default
+          via: ${GW}
+      nameservers:
+        addresses: [8.8.8.8, 1.1.1.1]
+YAML
+    $SUDO chmod 600 "$NP"
+
+    if [ -n "${EL34_NETPLAN_DRYRUN:-}" ]; then
+        echo "[el34] (dry-run) 파일 생성만 — netplan generate/apply 생략"; return 0
+    fi
+    if ! $SUDO netplan generate 2>&1 | sed 's/^/  netplan: /'; then
+        echo "[el34] ERROR: netplan generate 실패 — ${NP} 제거(롤백)"; $SUDO rm -f "$NP"; return 1
+    fi
+    $SUDO netplan apply && echo "[el34] ✅ netplan static 적용: ${IFACE}=${ip}/${PREFIX} gw=${GW} (재부팅에도 유지)"
 }
 
 ensure_ssh_keys() {
@@ -140,6 +296,11 @@ cmd_install() {
     $SUDO systemctl restart docker
     sleep 4
     echo "[el34] docker: $(docker --version 2>/dev/null)  userland-proxy=false 적용"
+    # 최초 setup: 웹 진입 고정 IP 를 사용자에게 1회 질의 → .env 에 고정(이후 up/재부팅 재사용)
+    resolve_web_host_ip
+    # 입력한 IP 를 유선 IF 에 netplan static 으로 고정(확인 후, 무선/0.0.0.0 은 자동 skip)
+    netplan_static "$WEB_HOST_IP"
+    echo "[el34] install 완료 — 다음: (docker 그룹 반영 위해 새 셸에서) ./el34.sh up"
 }
 
 # ───────────────────────────────────────────────── host network glue
@@ -170,8 +331,9 @@ cmd_up() {
     fi
     command -v docker >/dev/null || { echo "[el34] Docker 없음 — 먼저 'sudo ./el34.sh install'"; exit 1; }
     ensure_env; ensure_ssh_keys; ensure_certs; ensure_misp_env; ensure_opencti_env
-    # compose 가 바인딩하는 호스트 IP(.161 웹외부/.145 내부GUI) 보장 — 없으면 core up 이
-    # "cannot assign requested address" 로 실패. 실 NIC(ens37/ens38)면 멱등 skip.
+    resolve_web_host_ip  # install 에서 고정한 웹 진입 IP 사용(.env). 미설정이면 여기서 1회 질의.
+    # compose 가 바인딩하는 호스트 IP(웹외부 WEB_HOST_IP / 내부GUI .145) 보장 — 없으면 core up 이
+    # "cannot assign requested address" 로 실패. 실 NIC/DHCP IP 면 멱등 skip.
     WEB_HOST_IP="$WEB_HOST_IP" INT_HOST_IP="$INT_HOST_IP" ./el34-hostip.sh
     echo "[el34] === build (최초 ~수GB pull) ==="
     docker compose build

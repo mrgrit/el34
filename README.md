@@ -3,7 +3,9 @@
 > ⚠️ **일부 내용은 el34 의 옛 설계(이전 버전) 기준이라 현재와 다를 수 있다.** 재설계로
 > 바뀐 점: **HAProxy 제거**(fw 는 L3 DNAT 만), **ips masquerade 제거**(출처 IP 보존),
 > **MISP / OpenCTI(TI 플랫폼) 추가**, Windows 엔드포인트는 **보류**(현재 `--with-windows`
-> 미지원). 네트워크 전제도 2-NIC(웹 `192.168.0.161` / 내부 GUI `192.168.136.145`)로 바뀌었다.
+> 미지원). 네트워크: **`install` 이 웹 진입 고정 IP 를 1회 질의→`.env` 고정 + 유선 IF 에 netplan
+> static 적용**(강의실 DHCP 브리지 VM 지원; 학생 hosts `el34.lab→그 IP` 와 일치, 재부팅 불변) /
+> 내부 GUI 는 `192.168.136.145`(dummy, LAN 격리).
 > **현행 배포는 `./el34.sh install && ./el34.sh up`**, 설계 정본은
 > [`EL34-REDESIGN.md`](EL34-REDESIGN.md) + 저장소 실제 소스(compose/entrypoint)를 따른다.
 > 아래의 컨테이너 수·Windows 옵션·HAProxy 언급은 옛 스냅샷 기준이다.
@@ -76,7 +78,14 @@ cd el34
 
 # 1) Docker + 도구 자동 설치 (Ubuntu 22.04 / Debian 12)
 bash el34.sh install         # docker, docker compose plugin, git, jq, sshpass, dnsutils
-                             # 'docker' 그룹에 사용자 추가 후 종료
+                             # 'docker' 그룹에 사용자 추가
+                             # ★ 이때 '웹 진입 고정 IP' 를 1회 질의 → .env(WEB_HOST_IP) 에 고정하고,
+                             #   그 IP 를 유선 인터페이스에 netplan static 으로 고정(확인 후 적용).
+                             #   Enter=자동감지값 / 직접입력 / 0.0.0.0(모든 인터페이스, static 생략).
+                             #   학생 PC hosts 는 이 IP 로 el34.lab 을 매핑한다.
+                             #   · IP만 변경:      WEB_HOST_IP_FORCE=1 bash el34.sh install
+                             #   · static 롤백:    sudo rm /etc/netplan/99-el34-static.yaml && sudo netplan apply
+                             #   · 무선/미탐지 IF: static 자동 skip(수동 고정 권장)
 
 # 2) 새 터미널 열거나
 newgrp docker
@@ -182,7 +191,9 @@ RAM 4G 추가 + 디스크 50G+ 필요. KVM 가능한 호스트만 (`up --with-wi
 
 ## 학생 PC 접속 — 시스템별 가이드
 
-전제: VM IP 는 `bash el34.sh status` 로 확인. 아래 `<VM_IP>` 자리에 실제 IP 대체.
+전제: `<VM_IP>` = `install` 때 지정해 고정한 **웹 진입 IP**(= `.env` 의 `WEB_HOST_IP`,
+netplan static 으로 VM 에 고정된 값). 확인: `grep WEB_HOST_IP .env` 또는 `bash el34.sh status`.
+아래 `<VM_IP>` 자리에 그 IP 를 넣는다. (`0.0.0.0` 으로 지정했다면 VM 의 실제 IP 를 사용.)
 
 ### 1. 브라우저 (학생 PC)
 

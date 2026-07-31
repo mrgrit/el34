@@ -52,9 +52,18 @@ sudo ./el34.sh install     # Docker + daemon.json(userland-proxy=false)  ※ 그
 코어 build+up, **오버레이 opencti→misp 순서**(redis=valkey 충돌 방지), `el34-net.sh`+systemd 설치,
 Sigma 적재. (개별: `./el34.sh {install|up|down [-v]|net|certs|env|sigma}`)
 
-> 네트워크 전제: 호스트 IP 가 compose 와 일치해야 함 — 웹 `192.168.0.161`(ens37),
-> 내부 GUI `192.168.136.145`(ens38). DHCP 가변이면 netplan static 권장(README/세션 참조).
-> MISP/OpenCTI 는 `.136.145` 에 바인딩 → 호스트 Firefox 전용·LAN 격리.
+> 네트워크 전제:
+> - **웹 진입(`${WEB_HOST_IP}`)** — 최초 `el34.sh install` 이 **웹 진입 고정 IP 를 1회 질의**
+>   (기본값=자동감지 VM IP)하여 ① `.env`(WEB_HOST_IP)에 고정하고 ② 그 IP 를 **유선 IF 에
+>   netplan static 으로 고정**(확인 후 적용, cloud-init 네트워크 비활성). compose publish 는
+>   `${WEB_HOST_IP}` 로 바인딩. 그래서 강의실 **DHCP 브리지 VM** 에서도 IP 가 재부팅에 불변이고
+>   학생 hosts(`el34.lab → 이 IP`)와 바인딩이 일치해 **VM 밖에서 바로 접속**된다.
+>   · 이후 `up`/재부팅은 `.env` 고정값 그대로 사용(재질문 없음).
+>   · IP 변경: `WEB_HOST_IP_FORCE=1 ./el34.sh install`. static 롤백: `99-el34-static.yaml` 삭제 후 `netplan apply`.
+>   · `0.0.0.0` 선택 시 모든 인터페이스 바인딩(static 생략, VM 실제 IP 로 접속). 무선 IF 는 static 자동 skip.
+>   · 레거시 2-NIC(.151)는 `WEB_HOST_IP=192.168.0.161 ./el34.sh install` 로 명시 — 그대로 존중.
+> - **내부 GUI `192.168.136.145`(ens38/dummy)** — MISP/OpenCTI/SIEM 대시보드 바인딩,
+>   호스트 Firefox 전용·LAN 격리(변동 없음).
 
 ## 출처 IP 보존 — 검증 결과
 공격자 → fw → ips → web 경로에서 **보안장비 전 계층이 진짜 출처 IP를 봄**:
