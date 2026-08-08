@@ -53,7 +53,19 @@ RUN if [ ! -f /etc/modsecurity/modsecurity.conf ]; then \
     sed -i 's|^SecAuditLog .*|SecAuditLog /var/log/apache2/modsec_audit.log|' /etc/modsecurity/modsecurity.conf && \
     # SecAuditLogFormat / SecAuditLogType / SecAuditLogParts 명시 (기존 라인 제거 + 추가)
     sed -i '/^SecAuditLogFormat/d;/^SecAuditLogType/d;/^SecAuditLogParts/d' /etc/modsecurity/modsecurity.conf && \
-    printf '\n# el34 — JSON one-line per transaction (jq + Wazuh decoder)\nSecAuditLogFormat JSON\nSecAuditLogType Serial\nSecAuditLogParts ABCFHZ\n' >> /etc/modsecurity/modsecurity.conf
+    printf '\n# el34 — JSON one-line per transaction (jq + Wazuh decoder)\nSecAuditLogFormat JSON\nSecAuditLogType Serial\nSecAuditLogParts ABCFHZ\n' >> /etc/modsecurity/modsecurity.conf && \
+    # 교실은 오프라인/폐쇄망 — status.modsecurity.org 로의 phone-home 은 매 기동마다
+    # "StatusEngine call failed" 로 error.log 를 오염시켜 학생 로그 분석을 방해한다.
+    sed -i 's|^SecStatusEngine .*|SecStatusEngine Off|' /etc/modsecurity/modsecurity.conf
+
+# MPM 워커 상향 — sqlmap/nikto 스캔 실습 중 MaxRequestWorkers 150 이 고갈되어
+# AH00484 와 함께 요청이 큐잉되면, 학생은 타임아웃/불안정 응답을 보고 "WAF 가 이상하다"
+# 로 오진한다. 400 = ServerLimit 16 × ThreadsPerChild 25 (event MPM 기본 상한 내).
+RUN sed -i 's|^\(\s*\)MaxRequestWorkers\s\+.*|\1MaxRequestWorkers    400|' \
+        /etc/apache2/mods-available/mpm_event.conf && \
+    grep -q '^\s*ServerLimit' /etc/apache2/mods-available/mpm_event.conf || \
+    sed -i 's|^\(\s*\)MaxRequestWorkers|\1ServerLimit          16\n\1MaxRequestWorkers|' \
+        /etc/apache2/mods-available/mpm_event.conf
 
 # 랜딩 페이지 + vhost
 COPY web/landing/ /var/www/landing/

