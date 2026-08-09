@@ -33,7 +33,19 @@ else
     LAN_NET=$(ip -4 -br addr show "$LAN_IF" 2>/dev/null | awk '{print $3}' | cut -d/ -f1 | cut -d. -f1-3)
     WEB_NET=$(echo "$WEB_IP" | cut -d. -f1-3)
     if [ -n "$LAN_NET" ] && [ "$LAN_NET" = "$WEB_NET" ]; then
-        echo "[el34-hostip] $WEB_IP 는 $LAN_IF 서브넷(${LAN_NET}.0/24)과 동일 = DHCP 관리 IP — 정적 alias skip"
+        # 여기 왔다는 건 "$WEB_IP 가 LAN 서브넷 안인데 호스트에는 없다" = netplan static /
+        # DHCP 예약이 적용되지 않은 상태다. 예전엔 'DHCP 가 주겠지' 하고 skip 했는데, 그러면
+        # compose 의 ${WEB_HOST_IP}:80 바인딩이 'cannot assign requested address' 로 실패해
+        # el34-fw 가 exit 255 로 죽고 웹 진입 포트 전체(80/443/8001-8007)가 사라진다
+        # → 랜딩/취약사이트가 통째로 "안 열림". 그래서 alias 로 자가치유한다.
+        # 단 브리지 L2 에서 다른 장비가 이미 그 IP 를 쓰고 있으면 중복 배정이므로 그때만 skip.
+        if ping -c1 -W1 "$WEB_IP" >/dev/null 2>&1; then
+            echo "[el34-hostip] WARN: $WEB_IP 를 다른 장비가 이미 사용 중(ping 응답) — alias skip"
+            echo "              다른 IP 로 변경: WEB_HOST_IP_FORCE=1 ./el34.sh install (또는 0.0.0.0)"
+        else
+            SUDO ip addr add "$WEB_IP/24" dev "$LAN_IF" 2>/dev/null || true
+            echo "[el34-hostip] $WEB_IP -> $LAN_IF (LAN 서브넷 alias 자가치유 — netplan static/DHCP 예약 권장)"
+        fi
     elif [ -n "$LAN_IF" ]; then
         SUDO ip addr add "$WEB_IP/24" dev "$LAN_IF" 2>/dev/null || true
         echo "[el34-hostip] $WEB_IP -> $LAN_IF (웹 외부 진입 alias)"

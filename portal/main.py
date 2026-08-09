@@ -25,14 +25,20 @@ templates = Jinja2Templates(directory=str(BASE / "templates"))
 
 app = FastAPI(title="el34 Portal", docs_url="/api/docs", redoc_url=None)
 
+# 현행 4-tier 토폴로지(ext/pipe/dmz/int)와 일치시켜야 한다. 구 단일망 이름(el34-secu,
+# 10.20.30.x)이 남아 있으면 대시보드가 존재하지 않는 컨테이너를 "누락" 으로 계속 띄우고,
+# 반대로 el34-fw 가 죽어도(= 웹 진입 포트 전멸) 목록에 없어 조회되지 않으며
+# /logs/el34-fw/tail 이 404 를 반환해 장애 원인을 포털에서 볼 수 없었다.
 EXPECTED_CONTAINERS = [
     ("el34-bastion",   "10.20.30.201", "Bastion (SSH 점프 + API)"),
-    ("el34-secu",      "10.20.30.1",   "Firewall + IDS"),
-    ("el34-web",       "10.20.30.80",  "Web (Apache + ModSec)"),
-    ("el34-juiceshop", "10.20.30.81",  "JuiceShop (web 만)"),
-    ("el34-siem",      "10.20.30.100", "SIEM (Wazuh)"),
     ("el34-attacker",  "10.20.30.202", "Attacker (도구)"),
-    ("el34-portal",    "10.20.30.50",  "이 포털"),
+    ("el34-fw",        "10.20.30.1",   "Firewall (nftables + 웹 진입 DNAT)"),
+    ("el34-ips",       "10.20.31.2",   "IPS (Suricata 인라인)"),
+    ("el34-web",       "10.20.32.80",  "Web (Apache + ModSec WAF)"),
+    ("el34-siem",      "10.20.32.100", "SIEM (Wazuh manager)"),
+    ("el34-portal",    "10.20.32.50",  "이 포털"),
+    ("el34-juiceshop", "10.20.40.81",  "JuiceShop (WAF 뒤)"),
+    ("el34-dvwa",      "10.20.40.82",  "DVWA (WAF 뒤)"),
 ]
 
 

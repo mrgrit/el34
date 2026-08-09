@@ -46,6 +46,12 @@ for p in 8001 8002 8003 8004 8005 8006 8007; do
 done
 # bastion API (관리) — ext 망 bastion 으로
 nft add rule ip six_nat prerouting tcp dport 9100 dnat to ${BASTION_API_IP}:9100 2>/dev/null || true
+# 이 DNAT 만은 ext→ext 헤어핀(진입 IP:9100 → 같은 ext 망의 bastion)이라 SNAT 이 필요하다.
+# masquerade 가 없으면 bastion 이 클라이언트에게 **직접**(src=.201) 응답하고, 클라이언트는
+# 진입 IP 로부터의 응답을 기다리므로 conntrack 불일치로 버려진다 → :9100 이 항상 무응답.
+# 웹 경로(80/443/8001-8007)는 리턴이 web→ips→fw 로 되돌아오므로 masquerade 하지 않는다
+# (출처 IP 보존 = WAF 실습의 핵심). 그래서 9100 만 좁게 masquerade 한다.
+nft add rule ip six_nat postrouting ip daddr ${BASTION_API_IP} tcp dport 9100 masquerade 2>/dev/null || true
 
 # ─── Wazuh agent ────────────────────────────────────────
 if [ -d /var/ossec ]; then

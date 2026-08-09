@@ -337,7 +337,9 @@ services:
       dockerfile: assessor/Dockerfile
     hostname: assessor
     ports:
-      - "192.168.0.151:9201:8000"   # tubewar/CC 채점 접근
+      # 없는 IP 에 바인딩하면 컨테이너가 exit 255('cannot assign requested address') 로 죽는다
+      # (fw 가 .161 로 죽어 웹 진입 전체가 멈춘 사례) → 웹 진입 IP 와 같은 변수를 쓴다.
+      - "${WEB_HOST_IP:-0.0.0.0}:9201:8000"   # tubewar/CC 채점 접근
     networks:
       dmz:
         ipv4_address: 10.20.32.55

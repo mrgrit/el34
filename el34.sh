@@ -335,6 +335,16 @@ cmd_up() {
     # compose 가 바인딩하는 호스트 IP(웹외부 WEB_HOST_IP / 내부GUI .145) 보장 — 없으면 core up 이
     # "cannot assign requested address" 로 실패. 실 NIC/DHCP IP 면 멱등 skip.
     WEB_HOST_IP="$WEB_HOST_IP" INT_HOST_IP="$INT_HOST_IP" ./el34-hostip.sh
+    # el34-hostip 이 자가치유에 실패했는데도(IP 중복/무선/미탐지) 그대로 up 하면 fw 의
+    # ${WEB_HOST_IP}:80 바인딩이 실패하고 fw 만 exit 255 → 웹 진입 포트 전체가 죽는다.
+    # 실습장을 통째로 마비시키는 대신, 이번 기동만 0.0.0.0(모든 IF)로 낮춰 확실히 살린다.
+    if [ -n "$WEB_HOST_IP" ] && [ "$WEB_HOST_IP" != "0.0.0.0" ] && \
+       ! ip -4 addr show | grep -qw "$WEB_HOST_IP"; then
+        echo "[el34] ⚠️  WEB_HOST_IP=$WEB_HOST_IP 가 이 호스트에 없음 — 이번 기동은 0.0.0.0(모든 인터페이스)로 대체"
+        echo "        학생 hosts 는 VM 실제 IP($(detect_primary_ip || echo '?')) 로 매핑하세요."
+        echo "        고정 IP 를 유지하려면 netplan static/DHCP 예약 후 './el34.sh up' 재실행."
+        export WEB_HOST_IP=0.0.0.0   # compose 보간은 shell env > .env (.env 의 고정값은 보존)
+    fi
     echo "[el34] === build (최초 ~수GB pull) ==="
     docker compose build
     echo "[el34] === core up ==="

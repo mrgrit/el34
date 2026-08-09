@@ -49,6 +49,10 @@ th { background: #f1f5f9; }
 <pre><code>&lt;VM_IP&gt;  el34.lab juice.el34.lab dvwa.el34.lab neobank.el34.lab govportal.el34.lab mediforum.el34.lab admin.el34.lab ai.el34.lab portal.el34.lab
 &lt;VM_IP&gt;  siem.el34.lab bastion.el34.lab assessor.el34.lab fw-gui.el34.lab ips-gui.el34.lab waf-gui.el34.lab</code></pre>
 <p class="muted">⚠️ 한 줄로 길게 넣다가 에디터에서 줄바꿈되면 둘째 줄(siem·콘솔)에 IP 가 빠져 <strong>그 항목만 “안 열림”</strong>이 됩니다. <code>juice</code>~<code>portal</code> 은 되는데 <code>siem</code>/<code>*-gui</code> 만 안 열리면 거의 이 경우 — 위처럼 두 줄로 나눠 각각 IP 로 시작하세요. (확인: <code>ping siem.el34.lab</code> → VM IP)</p>
+<p class="muted"><strong>hosts 를 못 고치는 PC</strong>(권한 없음 등)는 <strong>포트분기</strong>로 접속하세요 — 도메인 없이 동일한 WAF 경로를 탄다:
+<code>VM_IP:8001</code> juice · <code>:8002</code> dvwa · <code>:8003</code> neobank · <code>:8004</code> govportal ·
+<code>:8005</code> mediforum · <code>:8006</code> admin · <code>:8007</code> ai.
+이 페이지를 <strong>IP 로 열었다면 아래 카드 링크는 자동으로 이 포트로 전환</strong>됩니다(아래 안내 배너 참고).</p>
 <div class="grid">
   <a class="card" href="http://juice.el34.lab/"><span class="tag attack">취약</span>OWASP Juice Shop<span class="meta">juice.el34.lab — 종합 OWASP Top 10</span></a>
   <a class="card" href="http://dvwa.el34.lab/"><span class="tag attack">취약</span>DVWA<span class="meta">dvwa.el34.lab — Damn Vulnerable Web App</span></a>
@@ -148,5 +152,56 @@ el34 — CCC 단일 VM Docker 버전 · <a href="https://github.com/mrgrit/el34"
 </p>
 
 </div>
+
+<script>
+/* 랜딩 카드 링크 자동 보정 — "랜딩은 열리는데 dvwa/juiceshop 은 안 열림" 의 원인 제거.
+ *
+ * 카드 href 는 모두 http://<name>.el34.lab/ 이라, 클라이언트 hosts 에 el34.lab 매핑이
+ * 없으면(학생 PC 권한 없음 / 호스트 Firefox 에서 IP 로 랜딩 열람) 이름이 풀리지 않아
+ * **모든 카드가 죽는다**. 이 페이지를 IP(또는 el34.lab 이 아닌 이름)로 열었을 때는
+ * 도메인 대신 포트분기(fw publish 800X → web:800X, ModSec 경로 동일)로 다시 쓴다.
+ *   · 취약 7종  → 지금 보고 있는 호스트의 :8001~:8007  (200-ports.conf)
+ *   · bastion  → 같은 호스트의 :9100/health           (fw publish)
+ *   · 관리 콘솔(portal/siem/fw-gui/ips-gui/waf-gui) → 내부 GUI IP 192.168.136.145
+ *     — 이들은 설계상 호스트 전용 바인딩이라 학생 PC 에서는 hosts 매핑이 필수. 배너로 명시.
+ * hosts 가 설정된 클라이언트(el34.lab 로 열람)면 아무것도 건드리지 않는다. */
+(function () {
+  var host = location.hostname;
+  if (host === 'el34.lab' || /\.el34\.lab$/i.test(host)) return;   // hosts 정상 — 원래 링크 유지
+
+  var VULN   = { juice: 8001, dvwa: 8002, neobank: 8003, govportal: 8004,
+                 mediforum: 8005, admin: 8006, ai: 8007 };
+  var INTGUI = { portal: 8000, siem: 5601, 'fw-gui': 8081, 'ips-gui': 8082, 'waf-gui': 8083 };
+  var INT_IP = '192.168.136.145';
+  var moved = 0, hostOnly = 0;
+
+  Array.prototype.forEach.call(document.querySelectorAll('a[href*="el34.lab"]'), function (a) {
+    var m = /^https?:\/\/([a-z0-9-]+)\.el34\.lab(\/.*)?$/i.exec(a.getAttribute('href'));
+    if (!m) return;
+    var name = m[1].toLowerCase(), path = m[2] || '/';
+    if (VULN[name] !== undefined) {                    // 포트분기는 HTTP 만 (TLS vhost 는 :443 전용)
+      a.href = 'http://' + host + ':' + VULN[name] + path; moved++;
+    } else if (name === 'bastion') {
+      a.href = 'http://' + host + ':9100' + path; moved++;
+    } else if (INTGUI[name] !== undefined) {
+      a.href = 'http://' + INT_IP + ':' + INTGUI[name] + path; hostOnly++;
+      a.title = '내부 GUI 전용 바인딩 — VM 호스트의 브라우저에서만 열립니다';
+    }
+  });
+  if (!moved && !hostOnly) return;
+
+  var b = document.createElement('div');
+  b.className = 'banner';
+  b.innerHTML = '이 페이지를 <code>' + host + '</code> (IP) 로 열었습니다 — hosts 에 ' +
+    '<code>el34.lab</code> 매핑이 없는 클라이언트로 판단하여 <strong>카드 링크 ' + moved +
+    '개를 포트분기(<code>' + host + ':8001~8007</code>, <code>:9100</code>)로 자동 전환</strong>했습니다. ' +
+    'WAF(ModSecurity) 경로는 도메인 접속과 동일합니다. ' +
+    '<code>*.el34.lab</code> 그대로 쓰려면 위 hosts 두 줄을 추가하세요.' +
+    (hostOnly ? ' 관리/교육 콘솔 ' + hostOnly + '개는 내부 GUI 전용(<code>' + INT_IP +
+                '</code>)이라 <strong>VM 호스트 브라우저에서만</strong> 열립니다.' : '');
+  var wrap = document.querySelector('.wrap');
+  wrap.insertBefore(b, wrap.querySelector('h1').nextSibling);
+})();
+</script>
 </body>
 </html>
